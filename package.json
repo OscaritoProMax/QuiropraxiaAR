@@ -1,0 +1,43 @@
+{
+  "name": "quiromasajes",
+  "version": "1.0.0",
+  "main": "electron.cjs",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "npx vite build",
+    "electron:dev": "npx concurrently \"npx vite\" \"npx wait-on http://localhost:5173 && electron . --dev\"",
+    "electron:build": "npx vite build && npx electron-builder"
+  },
+  "build": {
+    "appId": "com.quiromasajes.app",
+    "productName": "Quiromasajes E.F",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**",
+      "electron.cjs"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "img/quiro.png"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^36.2.1",
+    "electron-builder": "^26.0.12",
+    "vite": "^8.0.3",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "firebase": "^12.11.0"
+  }
+}

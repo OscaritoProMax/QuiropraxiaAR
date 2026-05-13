@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiromasajes — Dashboard</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+      <button class="toggle-btn" id="btn-toggle" title="Expandir / Contraer menú">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6"  x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="profile-container">
+      <div class="profile-avatar" id="sidebar-avatar">—</div>
+      <div class="profile-info">
+        <p class="profile-title"    id="sidebar-nombre">Cargando...</p>
+        <p class="profile-subtitle" id="sidebar-rol">—</p>
+      </div>
+    </div>
+
+    <nav class="menu-container">
+      <div class="menu-section-label">Principal</div>
+
+      <button class="menu-btn menu-active" data-view="dashboard">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </span>
+        <span class="menu-label">Dashboard</span>
+      </button>
+
+      <button class="menu-btn" data-view="pacientes">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <span class="menu-label">Pacientes</span>
+      </button>
+
+      <button class="menu-btn" data-view="citas">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8"  y1="2" x2="8"  y2="6"/>
+            <line x1="3"  y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+        <span class="menu-label">Citas</span>
+      </button>
+
+      <button class="menu-btn" data-view="cronograma">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
+        <span class="menu-label">Cronograma</span>
+      </button>
+
+      <div class="menu-section-label">Sistema</div>
+
+      <button class="menu-btn" data-view="usuarios" id="menu-usuarios">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </span>
+        <span class="menu-label">Usuarios</span>
+      </button>
+
+      <button class="menu-btn" data-view="configuracion">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <span class="menu-label">Configuracion</span>
+      </button>
+    </nav>
+
+    <div class="logout-area">
+      <button class="logout-btn" id="btn-logout">
+        <span class="menu-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </span>
+        <span class="menu-label">Cerrar sesion</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+  <div class="main-area">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="topbar-title">Dashboard</h1>
+        <p  id="topbar-sub">Resumen del dia</p>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-clock" id="topbar-reloj">--:--</div>
+        <div id="topbar-actions"></div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ════ DASHBOARD ════ -->
+      <section id="view-dashboard" class="view-section active">
+
+        <!-- KPIs principales -->
+        <div class="kpi-grid">
+
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8"  y1="2" x2="8"  y2="6"/>
+                  <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up" id="kpi-trend-citas">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-citas">—</div>
+            <div class="kpi-label">Citas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-citas">cargando...</div>
+          </div>
+
+          <div class="kpi-card kpi-green">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">dia</span>
+            </div>
+            <div class="kpi-value" id="stat-ingresos-dia">—</div>
+            <div class="kpi-label">Ingresos del dia</div>
+            <div class="kpi-sub" id="kpi-sub-ingresos">meta diaria en configuracion</div>
+          </div>
+
+          <div class="kpi-card kpi-purple">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                  <polyline points="17 6 23 6 23 12"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">mes</span>
+            </div>
+            <div class="kpi-value" id="stat-ingresos-mes">—</div>
+            <div class="kpi-label">Ingresos del mes</div>
+            <div class="kpi-sub" id="kpi-sub-mes">acumulado mensual</div>
+          </div>
+
+          <div class="kpi-card kpi-yellow">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up" id="kpi-trend-pac">total</span>
+            </div>
+            <div class="kpi-value" id="stat-pacientes">—</div>
+            <div class="kpi-label">Pacientes registrados</div>
+            <div class="kpi-sub" id="kpi-sub-pac">base de datos activa</div>
+          </div>
+
+          <div class="kpi-card kpi-red">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9"  y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-down" id="kpi-trend-cancel">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-canceladas">—</div>
+            <div class="kpi-label">Canceladas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-cancel">tasa de cancelacion</div>
+          </div>
+
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">mes</span>
+            </div>
+            <div class="kpi-value" id="stat-pendientes">—</div>
+            <div class="kpi-label">Pendientes hoy</div>
+            <div class="kpi-sub">citas activas restantes</div>
+          </div>
+
+        </div>
+
+        <!-- Paneles: cita actual + agente IA (renderizados por ui.js) -->
+        <div id="dash-panel-wrap"></div>
+
+        <!-- Graficas e informacion adicional -->
+        <div class="dash-extra-grid">
+
+          <!-- Sesiones por tipo -->
+          <div class="dash-panel">
+            <div class="dash-panel-label">
+              <span class="dash-dot dash-dot-yellow"></span>
+              Sesiones por tipo — este mes
+            </div>
+            <div id="tipos-barras" class="tipos-barras-wrap"></div>
+          </div>
+
+          <!-- Nuevos vs Recurrentes -->
+          <div class="dash-panel">
+            <div class="dash-panel-label">
+              <span class="dash-dot dash-dot-cyan"></span>
+              Nuevos vs Recurrentes
+            </div>
+            <div class="ring-wrap">
+              <svg class="ring-svg" viewBox="0 0 110 110">
+                <circle class="ring-track" cx="55" cy="55" r="46"/>
+                <circle class="ring-fill ring-fill-rec" id="ring-rec"
+                        cx="55" cy="55" r="46"
+                        stroke-dasharray="289" stroke-dashoffset="93"/>
+                <circle class="ring-fill ring-fill-new" id="ring-new"
+                        cx="55" cy="55" r="46"
+                        stroke-dasharray="289" stroke-dashoffset="196"
+                        style="transform-origin:55px 55px;transform:rotate(240deg)"/>
+              </svg>
+              <div class="ring-label-center">
+                <div class="ring-pct" id="ring-pct-rec">—%</div>
+                <div class="ring-desc">Recurrentes</div>
+              </div>
+            </div>
+            <div class="ring-legend">
+              <div class="ring-legend-item">
+                <span class="ring-legend-dot ring-legend-dot-rec"></span>
+                <span>Recurrentes</span>
+                <strong id="ring-count-rec">—</strong>
+              </div>
+              <div class="ring-legend-item">
+                <span class="ring-legend-dot ring-legend-dot-new"></span>
+                <span>Nuevos</span>
+                <strong id="ring-count-new">—</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tasa de cancelacion -->
+          <div class="dash-panel">
+            <div class="dash-panel-label">
+              <span class="dash-dot dash-dot-red"></span>
+              Tasa de cancelacion
+            </div>
+            <div id="cancelacion-barras" class="tipos-barras-wrap"></div>
+            <div id="alert-cancelacion"></div>
+          </div>
+
+          <!-- Actividad reciente -->
+          <div class="dash-panel dash-panel-actividad">
+            <div class="dash-panel-label">
+              <span class="dash-dot dash-dot-verde"></span>
+              Actividad reciente
+            </div>
+            <div id="actividad-lista" class="actividad-lista"></div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ════ PACIENTES ════ -->
+      <section id="view-pacientes" class="view-section">
+        <div class="pac-layout">
+
+          <nav class="pac-sidenav">
+            <button class="pac-tab-btn pac-tab-active" id="tab-pac-buscar" data-tab="tab-pac-buscar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              Buscar
+            </button>
+            <button class="pac-tab-btn" id="tab-pac-editar" data-tab="tab-pac-editar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar
+            </button>
+            <button class="pac-tab-btn" id="tab-pac-eliminar" data-tab="tab-pac-eliminar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+              Eliminar
+            </button>
+          </nav>
+
+          <div class="pac-content">
+
+            <!-- TAB BUSCAR -->
+            <div id="sec-pac-buscar">
+              <div class="pac-section-header">
+                <h3 class="pac-section-title">Buscar pacientes</h3>
+                <p class="pac-section-sub">Filtra por ciudad · maximo 50 resultados por defecto</p>
+              </div>
+              <div class="pac-filters">
+                <select class="input-text" id="pac-dpto-filtro" style="width:190px">
+                  <option value="">— Todos los departamentos —</option>
+                </select>
+                <select class="input-text" id="pac-select-ciudad" style="width:180px" disabled>
+                  <option value="">— Todas las ciudades —</option>
+                </select>
+                <input class="input-text" type="search" id="search-pac"
+                       placeholder="Buscar por nombre o telefono..." style="flex:1;min-width:200px"/>
+              </div>
+              <div class="pac-count-row">
+                <span id="pac-count-info" class="text-muted"></span>
+                <button class="btn btn-gray btn-sm" id="btn-pac-mostrar-todos" style="display:none">
+                  Mostrar todos
+                </button>
+              </div>
+              <div id="lista-pacientes">
+                <div class="empty-state">Selecciona una ciudad o busca un paciente</div>
+              </div>
+            </div>
+
+            <!-- TAB EDITAR -->
+            <div id="sec-pac-editar" style="display:none">
+              <div class="pac-section-header">
+                <h3 class="pac-section-title">Editar paciente</h3>
+                <p class="pac-section-sub">Busca el paciente y modifica sus datos · el telefono no es editable</p>
+              </div>
+              <input class="input-text" type="search" id="search-pac-editar"
+                     placeholder="Buscar por nombre o telefono..."
+                     style="margin-bottom:8px" autocomplete="off"/>
+              <div id="resultados-editar"
+                   class="pac-resultados-wrap"></div>
+              <div id="pac-editar-form"></div>
+            </div>
+
+            <!-- TAB ELIMINAR -->
+            <div id="sec-pac-eliminar" style="display:none">
+              <div class="pac-section-header">
+                <h3 class="pac-section-title">Eliminar paciente</h3>
+                <p class="pac-section-sub pac-section-sub-danger">
+                  Accion permanente e irreversible
+                </p>
+              </div>
+              <input class="input-text" type="search" id="search-pac-eliminar"
+                     placeholder="Buscar por nombre o telefono..."
+                     style="margin-bottom:8px" autocomplete="off"/>
+              <div id="resultados-eliminar"
+                   class="pac-resultados-wrap"></div>
+              <div id="alert-eliminar-pac" style="margin-top:10px"></div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ CITAS ════ -->
+      <section id="view-citas" class="view-section">
+        <div class="search-items">
+          <label class="form-label" style="margin:0">Fecha:</label>
+          <input class="input-text" type="date" id="filter-fecha" style="width:160px"/>
+          <button class="btn btn-gray btn-sm" id="btn-hoy">Hoy</button>
+          <button class="btn btn-gray btn-sm" id="btn-manana">Manana</button>
+        </div>
+        <div id="alert-cita"></div>
+        <div id="slots-container" class="slots-wrap">
+          <div class="empty-state">Selecciona una fecha para ver la agenda</div>
+        </div>
+      </section>
+
+      <!-- ════ CRONOGRAMA ════ -->
+      <section id="view-cronograma" class="view-section">
+        <div class="crono-topbar">
+          <div id="crono-resumen" class="crono-resumen"></div>
+          <button class="btn btn-gray btn-sm" id="btn-refresh-crono">Actualizar</button>
+        </div>
+        <div id="cronograma-container"></div>
+      </section>
+
+      <!-- ════ USUARIOS ════ -->
+      <section id="view-usuarios" class="view-section">
+        <div id="alert-usr"></div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span>Usuarios del sistema</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="usuarios-tbody">
+              <tr><td colspan="4" class="empty-state">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════ CONFIGURACION ════ -->
+      <section id="view-configuracion" class="view-section">
+        <div class="config-wrap">
+
+          <!-- Tema del sistema -->
+          <div class="config-section">
+            <h3 class="config-section-title">Tema del sistema</h3>
+            <div class="theme-options">
+
+              <div class="theme-card theme-card-active" data-theme-pick="light" id="theme-card-light">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#0f172a"></div>
+                  <div class="theme-preview-main" style="background:#f0f4fa">
+                    <div class="theme-preview-card" style="background:#fff"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Claro profesional</div>
+                <div class="theme-card-sub">Blanco y azul · alta legibilidad</div>
+              </div>
+
+              <div class="theme-card" data-theme-pick="dark" id="theme-card-dark">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#080d18"></div>
+                  <div class="theme-preview-main" style="background:#0d1117">
+                    <div class="theme-preview-card" style="background:#161b27"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Dark mode elegante</div>
+                <div class="theme-card-sub">Oscuro moderno · menor fatiga visual</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Ingresos y metas -->
+          <div class="config-section">
+            <h3 class="config-section-title">Ingresos y metas</h3>
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label class="form-label">Tarifa sesion estandar ($)</label>
+                <input class="input-text" type="number" id="cfg-tarifa"
+                       placeholder="60000" value="60000"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Meta ingresos diaria ($)</label>
+                <input class="input-text" type="number" id="cfg-meta-dia"
+                       placeholder="600000" value="600000"/>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="btn-guardar-cfg-ingresos">
+              Guardar cambios
+            </button>
+          </div>
+
+          <!-- Horario de trabajo -->
+          <div class="config-section">
+            <h3 class="config-section-title">Horario de trabajo</h3>
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label class="form-label">Hora inicio</label>
+                <input class="input-text" type="time" id="cfg-hora-inicio" value="08:00"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hora fin</label>
+                <input class="input-text" type="time" id="cfg-hora-fin" value="18:00"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duracion de sesion (minutos)</label>
+              <select class="input-text" id="cfg-duracion">
+                <option value="30">30 minutos</option>
+                <option value="60" selected>60 minutos</option>
+                <option value="90">90 minutos</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="btn-guardar-cfg-horario">
+              Guardar horario
+            </button>
+          </div>
+
+          <!-- Notificaciones -->
+          <div class="config-section">
+            <h3 class="config-section-title">Notificaciones</h3>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Alertas de citas proximas</div>
+                <div class="toggle-desc">Aviso 15 minutos antes de cada cita</div>
+              </div>
+              <div class="toggle-switch toggle-on" data-toggle="notif-citas"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Alertas de cancelaciones</div>
+                <div class="toggle-desc">Notificar al instante cuando se cancela una cita</div>
+              </div>
+              <div class="toggle-switch toggle-on" data-toggle="notif-cancel"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Resumen diario al cierre</div>
+                <div class="toggle-desc">Reporte automatico al finalizar el dia</div>
+              </div>
+              <div class="toggle-switch" data-toggle="notif-resumen"></div>
+            </div>
+          </div>
+
+          <!-- Roles -->
+          <div class="config-section">
+            <h3 class="config-section-title">Roles del equipo</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Usuario</th><th>Rol</th><th>Acceso</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Administrador</td>
+                    <td><span class="badge badge-primary">Quiropractico</span></td>
+                    <td>Total</td>
+                    <td><span class="badge badge-success">Activo</span></td>
+                  </tr>
+                  <tr>
+                    <td>Secretaria</td>
+                    <td><span class="badge badge-warning">Secretaria</span></td>
+                    <td>Citas, Pacientes</td>
+                    <td><span class="badge badge-success">Activo</span></td>
+                  </tr>
+                  <tr>
+                    <td>Call center</td>
+                    <td><span class="badge badge-warning">Call-center</span></td>
+                    <td>Citas, Contacto</td>
+                    <td><span class="badge badge-success">Activo</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top:12px">
+              <button class="btn btn-primary" id="btn-nuevo-usuario-cfg">
+                Nuevo usuario
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-area -->
+</div><!-- /app-container -->
+
+
+<!-- ════════════════ MODALES ════════════════ -->
+
+<!-- Nuevo paciente -->
+<div class="modal-overlay" id="modal-paciente">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-paciente">x</button>
+    <h2 class="modal-title">Registrar nuevo paciente</h2>
+    <div id="alert-form-pac"></div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Nombre completo <span>*</span></label>
+        <input class="input-text" id="p-nombre" placeholder="Carlos Mendoza"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefono celular <span>*</span></label>
+        <input class="input-text" id="p-tel" placeholder="+57 300 000 0000" type="tel"/>
+      </div>
+    </div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Documento (opcional)</label>
+        <input class="input-text" id="p-doc" placeholder="Cedula o ID"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo</label>
+        <input class="input-text" id="p-email" type="email" placeholder="paciente@correo.com"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Procedencia</label>
+      <div class="origen-radio-group">
+        <label class="origen-radio">
+          <input type="radio" name="p-origen" value="colombia" checked/>
+          Colombia
+        </label>
+        <label class="origen-radio">
+          <input type="radio" name="p-origen" value="extranjero"/>
+          Otro pais
+        </label>
+      </div>
+      <div id="p-origen-colombia" class="origen-selects">
+        <select class="input-text" id="p-dpto">
+          <option value="">Departamento...</option>
+        </select>
+        <select class="input-text" id="p-ciudad" disabled>
+          <option value="">Ciudad...</option>
+        </select>
+      </div>
+      <div id="p-origen-extranjero" class="origen-selects" style="display:none">
+        <select class="input-text" id="p-pais">
+          <option value="">Pais...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Fecha de nacimiento</label>
+        <input class="input-text" id="p-nacimiento" type="date"/>
+      </div>
+      <div class="form-group"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Condicion / motivo de consulta</label>
+      <input class="input-text" id="p-condicion" placeholder="Ej: Dolor lumbar cronico"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-paciente">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-pac">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nueva cita -->
+<div class="modal-overlay" id="modal-cita">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-cita">x</button>
+    <h2 class="modal-title">Agendar nueva cita</h2>
+    <div id="alert-form-cita"></div>
+
+    <div class="form-group">
+      <label class="form-label">Paciente <span>*</span></label>
+      <input class="input-text" id="c-buscar-pac"
+             placeholder="Buscar nombre o documento..." autocomplete="off"/>
+      <div id="c-pac-sugerencias" class="pac-sugerencias"></div>
+      <input type="hidden" id="c-paciente-id"/>
+      <input type="hidden" id="c-paciente-nombre"/>
+      <input type="hidden" id="c-paciente-ciudad"/>
+    </div>
+
+    <div class="quick-register" id="quick-register">
+      <h4>Registrar paciente rapido</h4>
+      <div class="form-row-2col">
+        <div class="form-group">
+          <label class="form-label">Nombre <span>*</span></label>
+          <input class="input-text" id="qp-nombre" placeholder="Nombre completo"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefono <span>*</span></label>
+          <input class="input-text" id="qp-tel" placeholder="+57 300 000 0000" type="tel"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Procedencia <span>*</span></label>
+        <div class="origen-radio-group">
+          <label class="origen-radio">
+            <input type="radio" name="qp-origen" value="colombia" checked/>
+            Colombia
+          </label>
+          <label class="origen-radio">
+            <input type="radio" name="qp-origen" value="extranjero"/>
+            Otro pais
+          </label>
+        </div>
+        <div id="qp-origen-colombia" class="origen-selects">
+          <select class="input-text" id="qp-dpto">
+            <option value="">Departamento...</option>
+          </select>
+          <select class="input-text" id="qp-ciudad" disabled>
+            <option value="">Ciudad...</option>
+          </select>
+        </div>
+        <div id="qp-origen-extranjero" class="origen-selects" style="display:none">
+          <select class="input-text" id="qp-pais">
+            <option value="">Pais...</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-soft btn-sm" id="btn-quick-save">
+        Guardar y usar este paciente
+      </button>
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Fecha <span>*</span></label>
+        <input class="input-text" type="date" id="c-fecha"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hora <span>*</span></label>
+        <select class="input-text" id="c-hora"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tipo de sesion</label>
+      <select class="input-text" id="c-tipo">
+        <option>Ajuste general</option>
+        <option>Evaluacion inicial</option>
+        <option>Terapia lumbar</option>
+        <option>Terapia cervical</option>
+        <option>Seguimiento</option>
+        <option>Descompresion</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas adicionales</label>
+      <textarea class="input-text" id="c-notas" rows="2" placeholder="Observaciones..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-cita">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-cita">Agendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reprogramar -->
+<div class="modal-overlay" id="modal-reprogramar">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-reprogramar">x</button>
+    <h2 class="modal-title">Reprogramar cita</h2>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Nueva fecha <span>*</span></label>
+        <input class="input-text" type="date" id="r-fecha"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nueva hora <span>*</span></label>
+        <select class="input-text" id="r-hora"></select>
+      </div>
+    </div>
+    <div id="alert-reprog" style="margin-bottom:8px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-reprogramar">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-reprog">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nuevo usuario -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-usuario">x</button>
+    <h2 class="modal-title">Crear nuevo usuario</h2>
+    <div id="alert-form-usr"></div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Nombre completo <span>*</span></label>
+        <input class="input-text" id="u-nombre" placeholder="Nombre del usuario"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol <span>*</span></label>
+        <select class="input-text" id="u-rol">
+          <option>Administrador</option>
+          <option>Secretaria</option>
+          <option>Call-center</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Correo electronico <span>*</span></label>
+      <input class="input-text" id="u-email" type="email" placeholder="usuario@quiromasajes.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contrasena temporal <span>*</span></label>
+      <input class="input-text" id="u-password" type="password" placeholder="Minimo 6 caracteres"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-usuario">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-usr">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="./js/config.js"></script>
+<script type="module">
+  import { initDashboard } from '../../modules/dashboard/handlers.js';
+  import { initConfiguracion } from '../../modules/dashboard/configuracion.js';
+  initDashboard();
+  initConfiguracion();
+</script>
+
+</body>
+</html>
