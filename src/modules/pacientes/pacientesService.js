@@ -1,45 +1,23 @@
 // src/modules/pacientes/pacientesService.js — Sprint 1: Módulo 009 - Gestión de clientes
+// ACTUALIZADO: geografía Colombia ahora viene de colombiaService.js (api-colombia.com)
 import {
   collection, addDoc, updateDoc, deleteDoc, getDocs,
   doc, query, where, serverTimestamp
 } from "firebase/firestore";
-import { db } from "../../core/firebase";   // ← era ./firebase
+import { db } from "../../core/firebase";
 
-// ── Estructura geográfica Colombia — 32 departamentos ──────
-export const DEPARTAMENTOS = {
-  "Amazonas":           ["Leticia","Puerto Nariño"],
-  "Antioquia":          ["Medellín","Bello","Itagüí","Envigado","Apartadó","Turbo","Rionegro","Caucasia","Marinilla","La Ceja","Sabaneta","Copacabana","Barbosa"],
-  "Arauca":             ["Arauca","Saravena","Tame","Fortul"],
-  "Atlántico":          ["Barranquilla","Soledad","Malambo","Sabanalarga","Baranoa","Puerto Colombia"],
-  "Bolívar":            ["Cartagena","Magangué","El Carmen de Bolívar","Mompox","Turbaco"],
-  "Boyacá":             ["Tunja","Duitama","Santa Rosa de Viterbo","Sogamoso","Chiquinquirá","Paipa","Villa de Leyva","Moniquirá","Samacá","Nobsa","Tibasosa","Corrales","Garagoa","Soatá","Guateque","Ramiriquí","Tenza","Miraflores","Aquitania","Puerto Boyacá","Berbeo","Jenesano","Ventaquemada","Siachoque"],
-  "Caldas":             ["Manizales","Chinchiná","La Dorada","Riosucio","Supía","Anserma","Salamina","Villamaría"],
-  "Caquetá":            ["Florencia","San Vicente del Caguán","El Doncello","Puerto Rico"],
-  "Casanare":           ["Yopal","Aguazul","Villanueva","Tauramena","Paz de Ariporo"],
-  "Cauca":              ["Popayán","Santander de Quilichao","Puerto Tejada","Patía","Guapi"],
-  "Cesar":              ["Valledupar","Aguachica","Codazzi","Bosconia","La Jagua de Ibirico"],
-  "Chocó":              ["Quibdó","Istmina","Tadó","Riosucio","Condoto"],
-  "Córdoba":            ["Montería","Lorica","Sahagún","Cereté","Montelíbano","Tierralta"],
-  "Cundinamarca":       ["Bogotá","Soacha","Zipaquirá","Facatativá","Chía","Mosquera","Madrid","Fusagasugá","Girardot","Cajicá","Tocancipá","Sibaté","La Mesa","Ubaté","Chocontá","Villeta","Cota","Tenjo","Sopó"],
-  "Guainía":            ["Inírida"],
-  "Guaviare":           ["San José del Guaviare","Calamar","El Retorno"],
-  "Huila":              ["Neiva","Pitalito","Garzón","La Plata","Campoalegre","Palermo"],
-  "La Guajira":         ["Riohacha","Maicao","Uribia","Manaure","San Juan del Cesar"],
-  "Magdalena":          ["Santa Marta","Ciénaga","Fundación","El Banco","Plato"],
-  "Meta":               ["Villavicencio","Acacías","Granada","Puerto López","San Martín"],
-  "Nariño":             ["Pasto","Tumaco","Ipiales","La Unión","Túquerres","Samaniego"],
-  "Norte de Santander": ["Cúcuta","Ocaña","Pamplona","Villa del Rosario","Los Patios","Tibú"],
-  "Putumayo":           ["Mocoa","Puerto Asís","Orito","Valle del Guamuez"],
-  "Quindío":            ["Armenia","Calarcá","Montenegro","Quimbaya","La Tebaida"],
-  "Risaralda":          ["Pereira","Dosquebradas","Santa Rosa de Cabal","La Virginia","Marsella"],
-  "San Andrés":         ["San Andrés","Providencia"],
-  "Santander":          ["Bucaramanga","Floridablanca","Girón","Piedecuesta","Barrancabermeja","Socorro","San Gil","Vélez","Málaga"],
-  "Sucre":              ["Sincelejo","Corozal","Sampués","Tolú","San Marcos"],
-  "Tolima":             ["Ibagué","Espinal","Melgar","Honda","Líbano","Chaparral","Mariquita"],
-  "Valle del Cauca":    ["Cali","Buenaventura","Palmira","Tuluá","Buga","Cartago","Jamundí","Yumbo","Candelaria"],
-  "Vaupés":             ["Mitú"],
-  "Vichada":            ["Puerto Carreño","La Primavera"],
-};
+// ── Geografía Colombia — ahora delegada a colombiaService ──
+// Se re-exportan las funciones clave para que el resto del proyecto
+// no tenga que cambiar sus imports si ya importaban desde aquí.
+export {
+  obtenerDepartamentos,
+  obtenerCiudades,
+  poblarSelectDepartamentos,
+  poblarSelectCiudades,
+  inicializarSelectsUbicacion,
+  restaurarUbicacion,
+  limpiarCacheGeografia,
+} from "./colombiaService.js";
 
 // ── Países (para pacientes extranjeros) ────────────────────
 export const PAISES = [
@@ -48,29 +26,26 @@ export const PAISES = [
   "Costa Rica","Cuba","República Dominicana","Otro"
 ];
 
-// ── Helpers de geografía ───────────────────────────────────
-/** Retorna lista plana de todas las ciudades de Colombia */
-export function todasLasCiudades() {
-  return Object.values(DEPARTAMENTOS).flat().sort((a, b) => a.localeCompare(b, 'es'));
-}
+// ── Helpers de ubicación — se mantienen igual ──────────────
 
 /** Dado "Boyacá > Tunja" retorna { departamento, ciudad } */
 export function parsearUbicacion(valor) {
-  if (!valor) return { departamento: '', ciudad: '' };
-  if (valor.includes(' > ')) {
-    const [departamento, ciudad] = valor.split(' > ');
+  if (!valor) return { departamento: "", ciudad: "" };
+  if (valor.includes(" > ")) {
+    const [departamento, ciudad] = valor.split(" > ");
     return { departamento, ciudad };
   }
   // Compatibilidad con registros viejos (solo ciudad)
-  return { departamento: '', ciudad: valor };
+  return { departamento: "", ciudad: valor };
 }
 
 /** Construye el string canónico "Departamento > Ciudad" */
 export function ubicacionString(departamento, ciudad) {
-  if (!departamento && !ciudad) return '';
+  if (!departamento && !ciudad) return "";
   if (!departamento) return ciudad;
   return `${departamento} > ${ciudad}`;
 }
+
 // ── Registrar paciente nuevo ────────────────────────────────
 export async function registrarPaciente(datos) {
   try {
@@ -84,14 +59,14 @@ export async function registrarPaciente(datos) {
     }
     const ref = await addDoc(collection(db, "clientes"), {
       nombre:          nombre.trim(),
-      documento:       documento.trim(),
-      telefono:        telefono        || "",
-      email:           email           || "",
-      condicion:       condicion       || "",
-      ciudad:          ciudad          || "",
-      fechaNacimiento: fechaNacimiento || "",
-      activo: true,
-      fechaRegistro: serverTimestamp()
+      documento:       documento?.trim() || "",
+      telefono:        telefono          || "",
+      email:           email             || "",
+      condicion:       condicion         || "",
+      ciudad:          ciudad            || "",   // Formato: "Boyacá > Tunja"
+      fechaNacimiento: fechaNacimiento   || "",
+      activo:          true,
+      fechaRegistro:   serverTimestamp()
     });
     return { ok: true, id: ref.id };
   } catch (error) {
@@ -101,22 +76,27 @@ export async function registrarPaciente(datos) {
 }
 
 // ── Registro rápido (desde modal de cita) ──────────────────
-export async function registrarPacienteRapido(nombre, telefono, ciudad, documento = '') {
+export async function registrarPacienteRapido(nombre, telefono, ciudad, documento = "") {
   try {
     if (!nombre || !telefono) {
       return { ok: false, error: "Nombre y teléfono son obligatorios." };
     }
     const duplicado = await buscarPorTelefono(telefono);
     if (duplicado) {
-      return { ok: false, error: `Ya existe un paciente con el teléfono ${telefono}.`, paciente: duplicado };
+      return {
+        ok: false,
+        error: `Ya existe un paciente con el teléfono ${telefono}.`,
+        paciente: duplicado
+      };
     }
     const ref = await addDoc(collection(db, "clientes"), {
-      nombre:    nombre.trim(),
-      telefono:  telefono.trim(),
-      documento: documento.trim(),
-      ciudad:    ciudad || "",
-      email: "", condicion: "",
-      activo: true,
+      nombre:        nombre.trim(),
+      telefono:      telefono.trim(),
+      documento:     documento.trim(),
+      ciudad:        ciudad || "",    // Formato: "Boyacá > Tunja"
+      email:         "",
+      condicion:     "",
+      activo:        true,
       fechaRegistro: serverTimestamp()
     });
     return { ok: true, id: ref.id, nombre: nombre.trim(), ciudad: ciudad || "" };
@@ -138,12 +118,12 @@ export async function actualizarPaciente(id, datos) {
   }
 }
 
-// ── Obtener todos (uso interno / estadísticas) ─────────────
+// ── Obtener todos (uso interno / estadísticas) ──────────────
 export async function obtenerPacientes() {
   try {
     const snap = await getDocs(collection(db, "clientes"));
     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    docs.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    docs.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     return docs;
   } catch (error) {
     console.error("Error obteniendo pacientes:", error);
@@ -152,21 +132,20 @@ export async function obtenerPacientes() {
 }
 
 // ── Obtener por ciudad con límite (evita cargar todo) ───────
-// Retorna { pacientes, hayMas }
+// NOTA: el campo "ciudad" en Firebase tiene formato "Boyacá > Tunja"
+// Para filtrar, se puede pasar la ciudad sola o el string completo.
 export async function obtenerPacientesPorCiudad(ciudad, limite = 50) {
   try {
-    let q;
+    let snap;
     if (ciudad) {
-      q = query(
-        collection(db, "clientes"),
-        where("ciudad", "==", ciudad)
-      );
+      // Buscar tanto por string completo como por ciudad sola (legacy)
+      const q = query(collection(db, "clientes"), where("ciudad", "==", ciudad));
+      snap = await getDocs(q);
     } else {
-      q = query(collection(db, "clientes"));
+      snap = await getDocs(collection(db, "clientes"));
     }
-    const snap = await getDocs(q);
     const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    todos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    todos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     return {
       pacientes: todos.slice(0, limite),
       hayMas:    todos.length > limite,
@@ -213,14 +192,14 @@ export async function buscarPorDocumento(documento) {
   }
 }
 
-// ── Buscar por nombre o documento (client-side) ─────────────
+// ── Buscar por nombre, teléfono o documento (client-side) ──
 export async function buscarPacientes(termino) {
   try {
     const todos = await obtenerPacientes();
     const t = termino.toLowerCase().trim();
     return todos.filter(p =>
       p.nombre.toLowerCase().includes(t) ||
-      (p.telefono && p.telefono.includes(t)) ||
+      (p.telefono  && p.telefono.includes(t)) ||
       (p.documento && p.documento.includes(t))
     );
   } catch (error) {
@@ -229,12 +208,15 @@ export async function buscarPacientes(termino) {
 }
 
 // ── Filtrar por ciudad (client-side) ───────────────────────
+// Soporta búsqueda parcial: "Tunja" matchea "Boyacá > Tunja"
 export async function filtrarPorCiudad(ciudad) {
   try {
     const todos = await obtenerPacientes();
     if (!ciudad) return todos;
-    // Busca tanto en formato nuevo "Depto > Ciudad" como en ciudad exacta (legacy)
-    return todos.filter(p => p.ciudad === ciudad || (p.ciudad && p.ciudad.includes(ciudad)));
+    return todos.filter(p =>
+      p.ciudad === ciudad ||
+      (p.ciudad && p.ciudad.includes(ciudad))
+    );
   } catch (error) {
     return [];
   }

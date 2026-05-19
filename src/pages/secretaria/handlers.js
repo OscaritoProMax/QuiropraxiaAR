@@ -13,10 +13,16 @@ import { registrarPaciente, registrarPacienteRapido,
          obtenerPacientes, obtenerPacientesPorCiudad,
          buscarPacientes, filtrarPorCiudad,
          actualizarPaciente, eliminarPaciente,
-         DEPARTAMENTOS, PAISES,
+         obtenerDepartamentos, PAISES,
          ubicacionString, parsearUbicacion }         from '../../modules/pacientes/pacientesService.js';
 import { agendarCita, cancelarCita, reprogramarCita,
          cambiarEstado, sugerirHorario, ESTADOS, HORARIOS }         from '../../modules/citas/citasService.js';
+
+import {  inicializarSelectsUbicacion,
+          poblarSelectDepartamentos,
+          poblarSelectCiudades,
+          restaurarUbicacion,
+        } from '../../modules/pacientes/colombiaService.js';
 
 import { mostrarAlerta, abrirModal, cerrarModal,
          crearBtn, HOY, MANANA,
@@ -60,19 +66,19 @@ export function initSecretaria() {
 // ══════════════════════════════════════════════════════════
 function poblarSelectsCiudades() {
   // Modal nuevo paciente: departamento + ciudad Colombia
-  bindSelectGeo('p-dpto', 'p-ciudad', DEPARTAMENTOS);
+  bindSelectGeo('p-dpto', 'p-ciudad', obtenerDepartamentos);
   // ¿País extranjero? toggle
   bindSelectPais('p-pais', PAISES);
 
   // Registro rápido (modal cita): departamento + ciudad
-  bindSelectGeo('qp-dpto', 'qp-ciudad', DEPARTAMENTOS);
+  bindSelectGeo('qp-dpto', 'qp-ciudad', obtenerDepartamentos);
   bindSelectPais('qp-pais', PAISES);
 
   // Filtro buscar pacientes: departamento + ciudad (con "Todos")
-  bindSelectGeo('pac-dpto-filtro', 'pac-select-ciudad', DEPARTAMENTOS, { conTodas: true });
+  bindSelectGeo('pac-dpto-filtro', 'pac-select-ciudad', obtenerDepartamentos, { conTodas: true });
 
   // Exponer para renderFormEditar (edición inline)
-  window.__DEPARTAMENTOS__ = DEPARTAMENTOS;
+  window.__DEPARTAMENTOS__ = obtenerDepartamentos;
   window.__PAISES__        = PAISES;
 
   // Toggle Colombia / Extranjero — modal nuevo paciente

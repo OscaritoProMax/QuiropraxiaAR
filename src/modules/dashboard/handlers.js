@@ -1,27 +1,38 @@
 // ══════════════════════════════════════════════════════════
 // handlers.js — Event listeners, lógica de formularios y navegación
+// ACTUALIZADO: geografía Colombia usa api-colombia.com via colombiaService.js
 // ══════════════════════════════════════════════════════════
 
 import { auth, db }           from '../../core/firebase.js';
 import { protegerPagina }     from '../../core/router.js';
 import { renderCronograma, autoCompletarCitasViejas } from './cronograma.js';
 import { getDocs, collection } from 'firebase/firestore';
-import { renderDashboardPaneles } from './ui.js';
+import { renderDashboardPaneles, renderGestorPacientes } from './ui.js';
 
 import { logout, crearUsuario, getUsuarioPorId,
          ROLES, tienePermiso }                      from '../../core/authService.js';
+
+// ── Pacientes: se elimina DEPARTAMENTOS, se agrega colombiaService ──
 import { registrarPaciente, registrarPacienteRapido,
          obtenerPacientes, obtenerPacientesPorCiudad,
          buscarPacientes, filtrarPorCiudad,
          actualizarPaciente, eliminarPaciente,
-         DEPARTAMENTOS, PAISES,
+         PAISES,
          ubicacionString, parsearUbicacion }         from '../pacientes/pacientesService.js';
+
+import {
+  inicializarSelectsUbicacion,
+  poblarSelectDepartamentos,
+  poblarSelectCiudades,
+  restaurarUbicacion,
+}                                                    from '../pacientes/colombiaService.js';
+
 import { agendarCita, cancelarCita, reprogramarCita,
          cambiarEstado, sugerirHorario, ESTADOS, HORARIOS }         from '../citas/citasService.js';
 
 import { mostrarAlerta, abrirModal, cerrarModal,
          crearBtn, HOY, MANANA,
-         bindSelectGeo, bindSelectPais }             from '../../shared/helpers.js';
+         bindSelectPais }                            from '../../shared/helpers.js';
 import { renderPerfil, renderEstadisticas, renderCitasHoy,
          renderSlots, renderPacientes, renderPills,
          renderResultadosBusqueda, renderFormEditar,
@@ -35,11 +46,16 @@ let pacientesCache    = [];
 let citaReprogramarId = null;
 let ciudadActivaPills = '';
 
+// Funciones getter para leer la ubicación seleccionada en cada formulario.
+// Se asignan cuando los selects son inicializados con la API.
+let _getUbicacionPaciente  = () => '';   // modal nuevo paciente
+let _getUbicacionRapida    = () => '';   // registro rápido en cita
+
 // ══════════════════════════════════════════════════════════
 // INIT — punto de entrada único
 // ══════════════════════════════════════════════════════════
 export function initDashboard() {
-  poblarSelectsCiudades();
+  poblarSelectsCiudades();   // ahora async — carga API en paralelo
   poblarSelectsHorarios();
   bindNavegacion();
   bindModalesGlobal();
@@ -57,44 +73,63 @@ export function initDashboard() {
 }
 
 // ══════════════════════════════════════════════════════════
-// SELECTS INICIALES
+// SELECTS DE GEOGRAFÍA — ahora usa api-colombia.com
 // ══════════════════════════════════════════════════════════
-function poblarSelectsCiudades() {
-  // Modal nuevo paciente: departamento + ciudad Colombia
-  bindSelectGeo('p-dpto', 'p-ciudad', DEPARTAMENTOS);
-  // ¿País extranjero? toggle
-  bindSelectPais('p-pais', PAISES);
+async function poblarSelectsCiudades() {
 
-  // Registro rápido (modal cita): departamento + ciudad
-  bindSelectGeo('qp-dpto', 'qp-ciudad', DEPARTAMENTOS);
+  // ── 1. Modal nuevo paciente ──────────────────────────────
+  const pDpto   = document.getElementById('p-dpto');
+  const pCiudad = document.getElementById('p-ciudad');
+  if (pDpto && pCiudad) {
+    _getUbicacionPaciente = await inicializarSelectsUbicacion(pDpto, pCiudad);
+  }
+
+  // ── 2. Registro rápido (modal cita) ─────────────────────
+  const qpDpto   = document.getElementById('qp-dpto');
+  const qpCiudad = document.getElementById('qp-ciudad');
+  if (qpDpto && qpCiudad) {
+    _getUbicacionRapida = await inicializarSelectsUbicacion(qpDpto, qpCiudad);
+  }
+
+  // ── 3. Filtro buscar pacientes ───────────────────────────
+  const filtroDpto   = document.getElementById('pac-dpto-filtro');
+  const filtroCiudad = document.getElementById('pac-select-ciudad');
+  if (filtroDpto && filtroCiudad) {
+    await poblarSelectDepartamentos(filtroDpto, 'Todos los departamentos');
+    filtroDpto.addEventListener('change', () => {
+      poblarSelectCiudades(filtroDpto, filtroCiudad, 'Todas las ciudades');
+    });
+    // Opción inicial "todos"
+    filtroCiudad.innerHTML = '<option value="">— Todas las ciudades —</option>';
+    filtroCiudad.disabled  = false;
+  }
+
+  // ── 4. Países (extranjero) — sin cambios ────────────────
+  bindSelectPais('p-pais',  PAISES);
   bindSelectPais('qp-pais', PAISES);
 
-  // Filtro buscar pacientes: departamento + ciudad (con "Todos")
-  bindSelectGeo('pac-dpto-filtro', 'pac-select-ciudad', DEPARTAMENTOS, { conTodas: true });
-
-  // Exponer para renderFormEditar (edición inline)
-  window.__DEPARTAMENTOS__ = DEPARTAMENTOS;
-  window.__PAISES__        = PAISES;
-
-  // Toggle Colombia / Extranjero — modal nuevo paciente
+  // ── 5. Toggle Colombia / Extranjero — modal nuevo paciente
   document.querySelectorAll('input[name="p-origen"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const esColombia = radio.value === 'colombia';
-      document.getElementById('p-origen-colombia').style.display = esColombia ? 'flex' : 'none';
+      document.getElementById('p-origen-colombia').style.display  = esColombia ? 'flex' : 'none';
       document.getElementById('p-origen-extranjero').style.display = esColombia ? 'none' : 'flex';
     });
   });
 
-  // Toggle Colombia / Extranjero — registro rápido
+  // ── 6. Toggle Colombia / Extranjero — registro rápido ───
   document.querySelectorAll('input[name="qp-origen"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const esColombia = radio.value === 'colombia';
-      document.getElementById('qp-origen-colombia').style.display = esColombia ? 'flex' : 'none';
+      document.getElementById('qp-origen-colombia').style.display  = esColombia ? 'flex' : 'none';
       document.getElementById('qp-origen-extranjero').style.display = esColombia ? 'none' : 'flex';
     });
   });
 }
 
+// ══════════════════════════════════════════════════════════
+// HORARIOS — sin cambios
+// ══════════════════════════════════════════════════════════
 function poblarSelectsHorarios() {
   ['c-hora', 'r-hora'].forEach(id => {
     const el = document.getElementById(id);
@@ -102,14 +137,34 @@ function poblarSelectsHorarios() {
   });
 }
 
+/** Filtra HORARIOS según la fecha: si es hoy, elimina horas ya pasadas */
+function horasDisponibles(fecha) {
+  if (fecha !== HOY) return HORARIOS;
+  const ahora = new Date();
+  const hhmm  = `${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`;
+  return HORARIOS.filter(h => h > hhmm);
+}
+
+/** Actualiza un select de horas según la fecha seleccionada */
+function actualizarSelectHoras(selectId, fecha, valorActual = null) {
+  const el = document.getElementById(selectId);
+  if (!el) return;
+  const disponibles = horasDisponibles(fecha);
+  if (disponibles.length === 0) {
+    el.innerHTML = '<option value="">No hay horarios disponibles hoy</option>';
+    el.disabled = true;
+  } else {
+    el.disabled = false;
+    el.innerHTML = disponibles.map(h => `<option>${h}</option>`).join('');
+    if (valorActual && disponibles.includes(valorActual)) el.value = valorActual;
+  }
+}
+
 // ══════════════════════════════════════════════════════════
-// AUTH
+// AUTH — sin cambios
 // ══════════════════════════════════════════════════════════
 async function initAuth() {
-  // protegerPagina verifica sesión y rol — redirige al login si no hay acceso.
-  // Para Paso 3: cambiar a ['Administrador', 'Secretaria'] según la página.
   usuarioActual = await protegerPagina('Administrador');
-
   renderPerfil(usuarioActual);
 
   if (!tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
@@ -127,8 +182,6 @@ async function initAuth() {
   ]);
 }
 
-
-
 async function completarCitaHoy(citaId) {
   await cambiarEstado(citaId, ESTADOS.COMPLETADA);
   await Promise.all([
@@ -138,7 +191,7 @@ async function completarCitaHoy(citaId) {
 }
 
 // ══════════════════════════════════════════════════════════
-// NAVEGACIÓN
+// NAVEGACIÓN — sin cambios
 // ══════════════════════════════════════════════════════════
 function bindNavegacion() {
   document.querySelectorAll('.menu-btn[data-view]').forEach(btn => {
@@ -147,29 +200,27 @@ function bindNavegacion() {
 }
 
 const btnToggle = document.getElementById('btn-toggle');
-const sidebar = document.getElementById('sidebar');
+const sidebar   = document.getElementById('sidebar');
 
 btnToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-    
-    // Opcional: Guardar el estado en localStorage para que se mantenga al recargar
-    const isCollapsed = sidebar.classList.contains('collapsed');
-    localStorage.setItem('sidebarStatus', isCollapsed ? 'collapsed' : 'open');
+  sidebar.classList.toggle('collapsed');
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  localStorage.setItem('sidebarStatus', isCollapsed ? 'collapsed' : 'open');
 });
 
 async function mostrarVista(vista, btn) {
-
   document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('menu-active'));
   document.getElementById('view-' + vista)?.classList.add('active');
   if (btn) btn.classList.add('menu-active');
 
   const titulos = {
-    dashboard: ['Dashboard',            'Resumen del día'],
-    pacientes: ['Gestión de pacientes', 'Código 009 — Registro, búsqueda y filtro por ciudad'],
-    citas:     ['Gestión de citas',     'Código 002 — Agenda de horarios'],
-    cronograma: ['Cronograma del día', 'Citas de hoy por estado y hora'],
-    usuarios:  ['Usuarios del sistema', 'Código 001 — Control de acceso'],
+    dashboard:   ['Dashboard',             'Resumen del día'],
+    pacientes:   ['Gestión de pacientes',  'Código 009 — Registro, búsqueda y filtro por ciudad'],
+    citas:       ['Gestión de citas',      'Código 002 — Agenda de horarios'],
+    cronograma:  ['Cronograma del día',    'Citas de hoy por estado y hora'],
+    usuarios:    ['Usuarios del sistema',  'Código 001 — Control de acceso'],
+    configuracion: ['Configuración',       'Ajustes del sistema'],
   };
   const [titulo, sub] = titulos[vista] ?? ['', ''];
   document.getElementById('topbar-title').textContent = titulo;
@@ -185,25 +236,35 @@ async function mostrarVista(vista, btn) {
     ]);
   }
 
-  if (vista === 'pacientes') {
-    actions.appendChild(crearBtn('+ Nuevo paciente', () => abrirModal('modal-paciente')));
-    // Activar tab de tabs
-    document.querySelectorAll('.pac-tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => activarTabPaciente(btn.dataset.tab));
+ if (vista === 'pacientes') {
+    await renderGestorPacientes({
+      onRegistrar: () => abrirModal('modal-paciente'),
+ 
+      onActualizar: async (id, datos) => {
+        const res = await actualizarPaciente(id, datos);
+        if (res.ok) await cargarPacientesCache();
+        return res;
+      },
+ 
+      onEliminar: async (id) => {
+        const res = await eliminarPaciente(id);
+        if (res.ok) await cargarPacientesCache();
+        return res;
+      },
     });
-    activarTabPaciente('tab-pac-buscar');
   }
 
   if (vista === 'citas') {
     actions.appendChild(crearBtn('+ Agendar cita', () => abrirModalCita()));
-    document.getElementById('filter-fecha').value = HOY;
-    await cargarSlotsFecha(HOY);
+    const filtroFecha = document.getElementById('filter-fecha');
+    if (!filtroFecha.value) filtroFecha.value = HOY;
+    await cargarSlotsFecha(filtroFecha.value);
   }
 
- if (vista === 'cronograma') {
-       actions.appendChild(crearBtn('↺ Actualizar', () => cargarCronograma()));
-       await cargarCronograma();
-     }
+  if (vista === 'cronograma') {
+    actions.appendChild(crearBtn('↺ Actualizar', () => cargarCronograma()));
+    await cargarCronograma();
+  }
 
   if (vista === 'usuarios' && tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
     actions.appendChild(crearBtn('+ Nuevo usuario', () => abrirModal('modal-usuario')));
@@ -212,11 +273,12 @@ async function mostrarVista(vista, btn) {
 }
 
 // ══════════════════════════════════════════════════════════
-// SLOTS DE CITAS
+// SLOTS DE CITAS — sin cambios
 // ══════════════════════════════════════════════════════════
 function bindFiltrosFecha() {
-  document.getElementById('filter-fecha')
-    .addEventListener('change', e => cargarSlotsFecha(e.target.value));
+  const filterFechaEl = document.getElementById('filter-fecha');
+  filterFechaEl.min = HOY;
+  filterFechaEl.addEventListener('change', e => cargarSlotsFecha(e.target.value));
 
   document.getElementById('btn-hoy')
     .addEventListener('click', () => {
@@ -233,17 +295,17 @@ function bindFiltrosFecha() {
 
 async function cargarSlotsFecha(fecha) {
   await renderSlots(fecha, {
-    onAgendar:      (hora) => abrirModalCita(hora),
-    onCompletar:    async (id, f) => {
+    onAgendar:   (hora, fecha) => abrirModalCita(hora, fecha),
+    onCompletar: async (id, f) => {
       await cambiarEstado(id, ESTADOS.COMPLETADA);
       await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
     },
-    onReprogramar:  (id, f) => {
+    onReprogramar: (id, f) => {
       citaReprogramarId = id;
       document.getElementById('r-fecha').value = f;
       abrirModal('modal-reprogramar');
     },
-    onCancelar:     async (id, f) => {
+    onCancelar: async (id, f) => {
       if (!confirm('¿Confirmas la cancelación de esta cita?')) return;
       await cancelarCita(id, 'Cancelada por administrador');
       mostrarAlerta('alert-cita', 'Cita cancelada.', 'success');
@@ -253,15 +315,14 @@ async function cargarSlotsFecha(fecha) {
 }
 
 // ══════════════════════════════════════════════════════════
-// PACIENTES — estado local del módulo
+// PACIENTES — sin cambios en lógica, solo ubicación actualizada
 // ══════════════════════════════════════════════════════════
-let pacEditando = null; // paciente actualmente seleccionado para editar
+let pacEditando = null;
 
 async function cargarPacientesCache() {
   pacientesCache = await obtenerPacientes();
 }
 
-// ── Activar tab dentro de la sección pacientes ───────────
 function activarTabPaciente(tab) {
   ['tab-pac-buscar','tab-pac-editar','tab-pac-eliminar'].forEach(t => {
     document.getElementById(t)?.classList.toggle('pac-tab-active', t === tab);
@@ -272,16 +333,21 @@ function activarTabPaciente(tab) {
   });
 }
 
-// ══════════════════════════════════════════════════════════
-// TAB 1 — BUSCAR POR CIUDAD
-// ══════════════════════════════════════════════════════════
+// ── TAB 1: BUSCAR ─────────────────────────────────────────
 function bindBusquedaPaciente() {
-  // Selector de ciudad
-  // El listener de ciudad ahora se dispara desde bindSelectGeo interno
-  // Añadimos listener en pac-select-ciudad para trigger de filtro
+  // Cuando cambia la ciudad en el filtro
   document.getElementById('pac-select-ciudad')?.addEventListener('change', async (e) => {
-    const ciudad = e.target.value;
-    const { pacientes, hayMas, total } = await obtenerPacientesPorCiudad(ciudad, 50);
+    // Obtener el nombre del departamento seleccionado para construir el filtro
+    const filtroDpto   = document.getElementById('pac-dpto-filtro');
+    const deptoNombre  = filtroDpto?.selectedOptions[0]?.dataset?.nombre || '';
+    const ciudadVal    = e.target.value;
+
+    // Buscar con formato "Depto > Ciudad" o solo ciudad para legacy
+    const filtro = deptoNombre && ciudadVal
+      ? `${deptoNombre} > ${ciudadVal}`
+      : ciudadVal;
+
+    const { pacientes, hayMas, total } = await obtenerPacientesPorCiudad(filtro, 50);
     renderPacientes(pacientes);
     const btnTodos = document.getElementById('btn-pac-mostrar-todos');
     const contInfo = document.getElementById('pac-count-info');
@@ -291,15 +357,19 @@ function bindBusquedaPaciente() {
 
   // Botón mostrar todos
   document.getElementById('btn-pac-mostrar-todos')?.addEventListener('click', async () => {
-    const ciudad = document.getElementById('pac-select-ciudad')?.value || '';
-    const { pacientes, total } = await obtenerPacientesPorCiudad(ciudad, 9999);
+    const filtroDpto  = document.getElementById('pac-dpto-filtro');
+    const filtroCiud  = document.getElementById('pac-select-ciudad');
+    const deptoNombre = filtroDpto?.selectedOptions[0]?.dataset?.nombre || '';
+    const ciudadVal   = filtroCiud?.value || '';
+    const filtro = deptoNombre && ciudadVal ? `${deptoNombre} > ${ciudadVal}` : ciudadVal;
+    const { pacientes, total } = await obtenerPacientesPorCiudad(filtro, 9999);
     renderPacientes(pacientes);
     const contInfo = document.getElementById('pac-count-info');
     if (contInfo) contInfo.textContent = `Mostrando todos: ${total} pacientes`;
     document.getElementById('btn-pac-mostrar-todos').style.display = 'none';
   });
 
-  // Búsqueda rápida por nombre/tel en tab buscar
+  // Búsqueda rápida por nombre/tel
   document.getElementById('search-pac')?.addEventListener('input', async (e) => {
     const q = e.target.value.trim();
     if (!q) {
@@ -312,11 +382,8 @@ function bindBusquedaPaciente() {
   });
 }
 
-// ══════════════════════════════════════════════════════════
-// TAB 2 — EDITAR PACIENTE
-// ══════════════════════════════════════════════════════════
+// ── TAB 2: EDITAR ─────────────────────────────────────────
 function bindEditorPaciente() {
-  // Búsqueda para editar
   document.getElementById('search-pac-editar')?.addEventListener('input', async (e) => {
     const q = e.target.value.trim();
     const cont = document.getElementById('resultados-editar');
@@ -324,10 +391,15 @@ function bindEditorPaciente() {
     if (q.length < 2) { cont.innerHTML = ''; return; }
     const lista = await buscarPacientes(q);
     renderResultadosBusqueda('resultados-editar', lista,
-      (paciente) => {
+      async (paciente) => {
         pacEditando = paciente;
-        window.__CIUDADES__ = CIUDADES;
         renderFormEditar(paciente);
+        // Restaurar selects de ubicación con el valor guardado en Firebase
+        await restaurarUbicacion(
+          document.getElementById('edit-dpto'),
+          document.getElementById('edit-ciudad'),
+          paciente.ciudad
+        );
         bindGuardarEditar();
         document.getElementById('resultados-editar').innerHTML = '';
         document.getElementById('search-pac-editar').value = '';
@@ -341,11 +413,24 @@ function bindGuardarEditar() {
   document.getElementById('btn-guardar-editar')?.addEventListener('click', async () => {
     if (!pacEditando) return;
     const btn = document.getElementById('btn-guardar-editar');
+
+    // Leer ubicación desde los nuevos selects del form de edición
+    const editDpto   = document.getElementById('edit-dpto');
+    const editCiudad = document.getElementById('edit-ciudad');
+    let ciudadEditada = pacEditando.ciudad; // valor actual por defecto
+
+    if (editDpto && editCiudad) {
+      const deptoNombre = editDpto.selectedOptions[0]?.dataset?.nombre || '';
+      const ciudad      = editCiudad.value;
+      if (deptoNombre && ciudad) ciudadEditada = `${deptoNombre} > ${ciudad}`;
+      else if (ciudad)           ciudadEditada = ciudad;
+    }
+
     const datos = {
       nombre:          document.getElementById('edit-nombre')?.value.trim(),
       documento:       document.getElementById('edit-documento')?.value.trim(),
       email:           document.getElementById('edit-email')?.value.trim(),
-      ciudad:          document.getElementById('edit-ciudad')?.value,
+      ciudad:          ciudadEditada,
       fechaNacimiento: document.getElementById('edit-nacimiento')?.value,
       condicion:       document.getElementById('edit-condicion')?.value.trim(),
     };
@@ -374,9 +459,7 @@ function bindGuardarEditar() {
   });
 }
 
-// ══════════════════════════════════════════════════════════
-// TAB 3 — ELIMINAR PACIENTE
-// ══════════════════════════════════════════════════════════
+// ── TAB 3: ELIMINAR ───────────────────────────────────────
 function bindEliminarPaciente() {
   document.getElementById('search-pac-eliminar')?.addEventListener('input', async (e) => {
     const q = e.target.value.trim();
@@ -411,16 +494,20 @@ Esta acción no se puede deshacer.`
 function bindFormPaciente() {
   document.getElementById('btn-guardar-pac').addEventListener('click', async () => {
     const btn = document.getElementById('btn-guardar-pac');
+
+    // Leer ubicación — ahora desde _getUbicacionPaciente (api-colombia)
+    const origenColombia = document.querySelector('input[name="p-origen"]:checked')?.value === 'colombia';
+    const ciudad = origenColombia
+      ? _getUbicacionPaciente()                          // "Boyacá > Tunja"
+      : (document.getElementById('p-pais')?.value || '');
+
     const datos = {
       nombre:          document.getElementById('p-nombre').value.trim(),
       telefono:        document.getElementById('p-tel').value.trim(),
       documento:       document.getElementById('p-doc').value.trim(),
       email:           document.getElementById('p-email').value.trim(),
       condicion:       document.getElementById('p-condicion').value.trim(),
-      ciudad:          ubicacionString(
-                         document.getElementById('p-dpto')?.value,
-                         document.getElementById('p-ciudad')?.value
-                       ) || document.getElementById('p-pais')?.value || '',
+      ciudad,
       fechaNacimiento: document.getElementById('p-nacimiento').value,
     };
 
@@ -434,9 +521,9 @@ function bindFormPaciente() {
         cerrarModal('modal-paciente');
         ['p-nombre','p-doc','p-tel','p-email','p-condicion','p-nacimiento']
           .forEach(id => { document.getElementById(id).value = ''; });
-        document.getElementById('p-dpto').value   = '';
-        document.getElementById('p-ciudad').value  = '';
-        document.getElementById('p-pais').value    = '';
+        document.getElementById('p-dpto').value  = '';
+        document.getElementById('p-ciudad').value = '';
+        document.getElementById('p-pais').value  = '';
       }, 900);
     } else {
       mostrarAlerta('alert-form-pac', res.error, 'error');
@@ -449,21 +536,30 @@ function bindFormPaciente() {
 // ══════════════════════════════════════════════════════════
 // MODAL CITA — autocomplete de paciente
 // ══════════════════════════════════════════════════════════
-function abrirModalCita(horaPreseleccionada = null) {
+function abrirModalCita(horaPreseleccionada = null, fechaPreseleccionada = null) {
   document.getElementById('c-buscar-pac').value  = '';
   document.getElementById('c-paciente-id').value = '';
   document.getElementById('c-pac-sugerencias').style.display = 'none';
   document.getElementById('quick-register').classList.remove('visible');
-  document.getElementById('c-fecha').value = HOY;
-  if (horaPreseleccionada) document.getElementById('c-hora').value = horaPreseleccionada;
+
+  const fechaFiltro = document.getElementById('filter-fecha')?.value || HOY;
+  const fechaFinal  = fechaPreseleccionada || fechaFiltro;
+
+  const inputFecha = document.getElementById('c-fecha');
+  inputFecha.min   = HOY;
+  inputFecha.value = fechaFinal < HOY ? HOY : fechaFinal;
+
+  actualizarSelectHoras('c-hora', inputFecha.value, horaPreseleccionada);
+  inputFecha.onchange = () => actualizarSelectHoras('c-hora', inputFecha.value);
+
   abrirModal('modal-cita');
 }
 
 function bindFormCita() {
-  const inputBuscar  = document.getElementById('c-buscar-pac');
-  const sugerencias  = document.getElementById('c-pac-sugerencias');
+  const inputBuscar = document.getElementById('c-buscar-pac');
+  const sugerencias = document.getElementById('c-pac-sugerencias');
 
-  // Autocomplete
+  // Autocomplete — sin cambios
   inputBuscar.addEventListener('input', async () => {
     const q = inputBuscar.value.trim();
     if (q.length < 2) { sugerencias.style.display = 'none'; return; }
@@ -480,14 +576,12 @@ function bindFormCita() {
         </div>`;
       sugerencias.style.display = 'block';
       document.getElementById('show-quick-reg').addEventListener('click', () => {
-          // Si q es numérico → va al documento, nombre queda vacío
-          // Si q tiene letras  → va al nombre, documento queda vacío
-          const esTelefono = /^[\d+\s-]{6,}$/.test(q);
-          document.getElementById('qp-nombre').value = esTelefono ? '' : q;
-          document.getElementById('qp-tel').value    = esTelefono ? q  : '';
-          document.getElementById('quick-register').classList.add('visible');
-          sugerencias.style.display = 'none';
-        });
+        const esTelefono = /^[\d+\s-]{6,}$/.test(q);
+        document.getElementById('qp-nombre').value = esTelefono ? '' : q;
+        document.getElementById('qp-tel').value    = esTelefono ? q  : '';
+        document.getElementById('quick-register').classList.add('visible');
+        sugerencias.style.display = 'none';
+      });
       return;
     }
 
@@ -507,42 +601,43 @@ function bindFormCita() {
     });
   });
 
-  // Registro rápido
+  // Registro rápido — ahora usa _getUbicacionRapida
   document.getElementById('btn-quick-save').addEventListener('click', async () => {
     const btn    = document.getElementById('btn-quick-save');
     const nombre = document.getElementById('qp-nombre').value.trim();
     const tel_   = document.getElementById('qp-tel').value.trim();
-    const ciudad = ubicacionString(
-      document.getElementById('qp-dpto')?.value,
-      document.getElementById('qp-ciudad')?.value
-    ) || document.getElementById('qp-pais')?.value || '';
+
+    const origenColombia = document.querySelector('input[name="qp-origen"]:checked')?.value === 'colombia';
+    const ciudad = origenColombia
+      ? _getUbicacionRapida()                            // "Boyacá > Tunja"
+      : (document.getElementById('qp-pais')?.value || '');
 
     btn.textContent = 'Guardando...'; btn.disabled = true;
     const res = await registrarPacienteRapido(nombre, tel_, ciudad);
 
     if (res.ok) {
-      // ... código existente ...
+      asignarPacienteACita(res.id, res.nombre, res.ciudad || '');
       document.getElementById('quick-register').classList.remove('visible');
-      // Agregar limpieza de campos:
       document.getElementById('qp-nombre').value  = '';
       document.getElementById('qp-tel').value     = '';
       document.getElementById('qp-dpto').value    = '';
       document.getElementById('qp-ciudad').value  = '';
       document.getElementById('qp-pais').value    = '';
-    }else {
-    if (res.paciente) {
-      document.getElementById('c-paciente-id').value     = res.paciente.id;
-      document.getElementById('c-paciente-nombre').value = res.paciente.nombre;
-      document.getElementById('c-buscar-pac').value      = res.paciente.nombre;
-      document.getElementById('quick-register').classList.remove('visible'); // ← AGREGAR
-      mostrarAlerta('alert-form-cita', 'Paciente ya existente — seleccionado.', 'success');
+      mostrarAlerta('alert-form-cita', 'Paciente registrado y seleccionado.', 'success');
+    } else {
+      if (res.paciente) {
+        asignarPacienteACita(res.paciente.id, res.paciente.nombre, res.paciente.ciudad || '');
+        document.getElementById('quick-register').classList.remove('visible');
+        mostrarAlerta('alert-form-cita', 'Paciente ya existente — seleccionado.', 'success');
+      } else {
+        mostrarAlerta('alert-form-cita', res.error, 'error');
+      }
     }
-        }
 
     btn.textContent = 'Guardar y usar este paciente'; btn.disabled = false;
   });
 
-  // Guardar cita
+  // Guardar cita — sin cambios
   document.getElementById('btn-guardar-cita').addEventListener('click', async () => {
     const btn = document.getElementById('btn-guardar-cita');
     const pid = document.getElementById('c-paciente-id').value;
@@ -578,10 +673,10 @@ function bindFormCita() {
         document.getElementById('c-notas').value = '';
       }, 900);
     } else {
-      // ── Sugerir próximo horario disponible ──────────────
+      // Sugerir próximo horario disponible
       const sugerencia = await sugerirHorario(datos.fecha, datos.hora);
+      const alertEl = document.getElementById('alert-form-cita');
       if (sugerencia) {
-        const alertEl = document.getElementById('alert-form-cita');
         alertEl.className = 'alert alert-warning';
         alertEl.innerHTML = `
           ⚠️ ${res.error}<br>
@@ -621,10 +716,10 @@ function asignarPacienteACita(id, nombre, ciudad) {
   document.getElementById('c-buscar-pac').value      = nombre;
 }
 
-// ── Formulario: reprogramar ───────────────────────────────
+// ── Formulario: reprogramar — sin cambios ─────────────────
 function bindFormReprogramar() {
   document.getElementById('btn-confirmar-reprog').addEventListener('click', async () => {
-    const btn  = document.getElementById('btn-confirmar-reprog');
+    const btn   = document.getElementById('btn-confirmar-reprog');
     const fecha = document.getElementById('r-fecha').value;
     const hora  = document.getElementById('r-hora').value;
 
@@ -636,7 +731,6 @@ function bindFormReprogramar() {
       mostrarAlerta('alert-cita', 'Cita reprogramada correctamente.', 'success');
       await cargarSlotsFecha(document.getElementById('filter-fecha').value);
     } else {
-      // ── Sugerir próximo horario libre ──────────────────
       const sugerencia = await sugerirHorario(fecha, hora);
       const alertEl    = document.getElementById('alert-reprog');
 
@@ -653,7 +747,6 @@ function bindFormReprogramar() {
             Usar este horario
           </button>`;
         setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 8000);
-
         document.getElementById('btn-usar-sugerencia-reprog')
           ?.addEventListener('click', () => {
             document.getElementById('r-hora').value  = sugerencia.hora;
@@ -672,7 +765,7 @@ function bindFormReprogramar() {
 }
 
 // ══════════════════════════════════════════════════════════
-// USUARIOS
+// USUARIOS — sin cambios
 // ══════════════════════════════════════════════════════════
 async function cargarUsuarios() {
   const snap  = await getDocs(collection(db, 'usuarios'));
@@ -707,7 +800,7 @@ function bindFormUsuario() {
 }
 
 // ══════════════════════════════════════════════════════════
-// LOGOUT
+// LOGOUT — sin cambios
 // ══════════════════════════════════════════════════════════
 function bindLogout() {
   document.getElementById('btn-logout').addEventListener('click', async () => {
@@ -718,7 +811,7 @@ function bindLogout() {
 }
 
 // ══════════════════════════════════════════════════════════
-// MODALES — cierre global
+// MODALES — cierre global, sin cambios
 // ══════════════════════════════════════════════════════════
 function bindModalesGlobal() {
   document.querySelectorAll('[data-close]').forEach(el => {
@@ -736,7 +829,6 @@ function bindCronograma() {
     ?.addEventListener('click', () => cargarCronograma());
 }
 
- 
 async function cargarCronograma() {
   await renderCronograma({
     onCompletar: async (id) => {
@@ -749,41 +841,38 @@ async function cargarCronograma() {
     },
     onReprogramar: (id) => {
       citaReprogramarId = id;
-      document.getElementById('r-fecha').value = HOY;
+      const rFechaEl = document.getElementById('r-fecha');
+      rFechaEl.min   = HOY;
+      rFechaEl.value = HOY;
+      actualizarSelectHoras('r-hora', HOY);
+      rFechaEl.onchange = () => actualizarSelectHoras('r-hora', rFechaEl.value);
       abrirModal('modal-reprogramar');
     },
   });
 }
 
+// ══════════════════════════════════════════════════════════
+// ASISTENTE VOZ — sin cambios
+// ══════════════════════════════════════════════════════════
 function abrirModalCitaDesdeVoz(datos) {
-  // Preseleccionar hora si viene
   const horaPresel = datos.hora || null;
   abrirModalCita(horaPresel);
- 
-  // Inyectar fecha
+
   if (datos.fecha) {
     document.getElementById('c-fecha').value = datos.fecha;
   }
- 
-  // Inyectar tipo
   if (datos.tipo) {
     const sel = document.getElementById('c-tipo');
-    // Intentar seleccionar el tipo más parecido
     const opcion = Array.from(sel.options)
       .find(o => o.text.toLowerCase().includes(datos.tipo.toLowerCase()));
     if (opcion) sel.value = opcion.value;
   }
- 
-  // Inyectar notas
   if (datos.notas) {
     document.getElementById('c-notas').value = datos.notas;
   }
- 
-  // Pre-rellenar búsqueda de paciente con el nombre extraído
   if (datos.clienteNombre) {
     const input = document.getElementById('c-buscar-pac');
     input.value = datos.clienteNombre;
-    // Disparar el evento input para activar el autocomplete
     input.dispatchEvent(new Event('input'));
   }
 }

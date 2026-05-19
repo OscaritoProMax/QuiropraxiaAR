@@ -1,0 +1,611 @@
+/* ============================================================
+   pacientes.css — Gestor CRM de pacientes
+   Proyecto: Quiromasajes
+   ============================================================ */
+
+/* ══════════════════════════════════════════════════════════
+   HEADER CRM — estadisticas y boton nuevo
+══════════════════════════════════════════════════════════ */
+.crm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.crm-header-left {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.crm-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  min-width: 80px;
+  transition: box-shadow 0.2s;
+}
+.crm-stat:hover { box-shadow: var(--shadow-md); }
+
+.crm-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.crm-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════════════════════════
+   PANEL IA — SUGERENCIA DE VIAJE
+══════════════════════════════════════════════════════════ */
+.crm-ia-card {
+  background: var(--white);
+  border: 1px solid #d0e8fb;
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s;
+}
+.crm-ia-card:hover { box-shadow: 0 4px 16px rgba(10,118,216,.1); }
+
+.crm-ia-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.crm-ia-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.crm-ia-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.crm-ia-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.crm-ia-refresh {
+  margin-left: auto;
+  background: var(--primary-soft);
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--primary);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.crm-ia-refresh:hover {
+  background: var(--primary);
+  color: var(--white);
+}
+.crm-ia-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.crm-ia-body { min-height: 40px; }
+
+.crm-ia-placeholder {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.crm-ia-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--primary);
+}
+
+.crm-ia-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: crm-spin 0.7s linear infinite;
+}
+
+@keyframes crm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.crm-ia-error {
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+/* Resultado IA */
+.crm-ia-resultado { display: flex; flex-direction: column; gap: 8px; }
+
+.crm-ia-ciudad-sugerida {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  padding: 8px 0 4px;
+}
+
+.crm-ia-razon {
+  font-size: 13px;
+  color: var(--text-body);
+  line-height: 1.6;
+}
+
+.crm-ia-consejo {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--primary-soft);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+/* Chips de ciudades */
+.crm-ia-ciudades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.crm-ia-ciudad-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-soft);
+  border: 1px solid #c8e0f7;
+  border-radius: 99px;
+  padding: 3px 10px 3px 8px;
+  font-size: 12px;
+  color: var(--primary-text);
+}
+
+.crm-ia-chip-nombre { font-weight: 500; }
+
+.crm-ia-chip-num {
+  background: var(--primary);
+  color: var(--white);
+  border-radius: 99px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ══════════════════════════════════════════════════════════
+   BARRA DE BUSQUEDA Y FILTROS
+══════════════════════════════════════════════════════════ */
+.crm-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.crm-search-wrap,
+.crm-ciudad-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+}
+
+.crm-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.crm-search-input {
+  width: 100%;
+  padding: 7px 12px 7px 34px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: var(--text-body);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.crm-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(10,118,216,0.1);
+}
+
+/* Autocomplete dropdown */
+.crm-autocomplete {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  z-index: 200;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.crm-autocomplete::-webkit-scrollbar { width: 4px; }
+.crm-autocomplete::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.crm-ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f4f4f4;
+  transition: background 0.15s;
+  font-size: 13px;
+}
+.crm-ac-item:last-child { border-bottom: none; }
+.crm-ac-item:hover { background: #f0f7ff; }
+
+/* Ciudad wrap con SVG izquierda */
+.crm-ciudad-wrap .crm-search-input { padding-left: 30px; }
+.crm-ciudad-wrap > svg { position: absolute; left: 8px; }
+.crm-ciudad-ac { max-height: 200px; }
+
+.crm-clear-ciudad {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.crm-clear-ciudad:hover { color: var(--danger); }
+
+/* Toggle vista */
+.crm-view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.crm-view-btn {
+  width: 34px;
+  height: 34px;
+  background: var(--white);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.crm-view-btn + .crm-view-btn { border-left: 1px solid var(--border); }
+.crm-view-btn:hover { background: var(--primary-soft); color: var(--primary); }
+.crm-view-active    { background: var(--primary-soft) !important; color: var(--primary) !important; }
+
+.crm-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LISTA EN MODO CARDS
+══════════════════════════════════════════════════════════ */
+.crm-lista-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  animation: crm-fadein 0.25s ease;
+}
+
+@media (max-width: 700px) {
+  .crm-lista-cards { grid-template-columns: 1fr; }
+}
+
+@keyframes crm-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.crm-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  position: relative;
+}
+.crm-card:hover {
+  box-shadow: 0 4px 16px rgba(10,118,216,.1);
+  border-color: rgba(10,118,216,.25);
+  transform: translateY(-2px);
+}
+
+.crm-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.crm-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+  letter-spacing: -0.5px;
+}
+
+.crm-card-info { flex: 1; min-width: 0; }
+
+.crm-card-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crm-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+/* Chips de info en la card */
+.crm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crm-chip-ciudad {
+  background: #e8f4ff;
+  color: #1b62b3;
+  border: 1px solid #c8e0f7;
+}
+
+.crm-chip-condicion {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid #ffe5a0;
+}
+
+.crm-badge-estado { flex-shrink: 0; }
+
+/* Datos de contacto */
+.crm-card-datos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #f8fbff;
+  border-radius: var(--radius-md);
+  border: 1px solid #edf2fb;
+}
+
+.crm-dato {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.crm-dato svg { flex-shrink: 0; color: var(--primary); opacity: 0.7; }
+
+/* Acciones de la card */
+.crm-card-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.crm-btn-editar,
+.crm-btn-eliminar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Condicion en tabla */
+.crm-condicion-tag {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ══════════════════════════════════════════════════════════
+   LISTA EN MODO TABLA
+══════════════════════════════════════════════════════════ */
+.crm-lista-tabla {
+  margin-bottom: 20px;
+  animation: crm-fadein 0.25s ease;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ESTADO VACIO
+══════════════════════════════════════════════════════════ */
+.crm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 12px;
+  grid-column: 1 / -1;
+  background: var(--white);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+.crm-empty p { margin: 0; }
+
+/* ══════════════════════════════════════════════════════════
+   PANEL DE EDICION INLINE
+══════════════════════════════════════════════════════════ */
+.crm-editar-panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  overflow: hidden;
+  animation: crm-fadein 0.25s ease;
+  box-shadow: 0 4px 20px rgba(10,118,216,.08);
+}
+
+.crm-edit-inner { padding: 20px 24px; }
+
+.crm-edit-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.crm-edit-close {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.crm-edit-close:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.crm-edit-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════════ */
+@media (max-width: 860px) {
+  .crm-header { flex-direction: column; align-items: flex-start; }
+  .crm-header-right { align-self: flex-end; }
+  .crm-search-bar { gap: 8px; }
+  .crm-search-wrap,
+  .crm-ciudad-wrap { min-width: 140px; }
+}
+
+@media (max-width: 600px) {
+  .crm-stat { padding: 8px 14px; min-width: 64px; }
+  .crm-stat-num { font-size: 20px; }
+  .crm-edit-inner { padding: 16px; }
+  .crm-ia-card { padding: 14px; }
+}

@@ -6,6 +6,42 @@
   <title>Quiromasajes — Dashboard</title>
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/pacientes.css">
+  <style>
+    /* ── Skeleton de carga — vista pacientes ── */
+    @keyframes skeleton-shine {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .crm-skeleton { padding: 4px 0; }
+    .crm-skeleton-header {
+      display: flex; gap: 12px; margin-bottom: 16px;
+    }
+    .crm-skeleton-stat {
+      height: 68px; flex: 1; border-radius: 6px;
+      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
+      background-size: 800px 100%;
+      animation: skeleton-shine 1.4s infinite linear;
+    }
+    .crm-skeleton-bar {
+      height: 48px; border-radius: 8px; margin-bottom: 12px;
+      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
+      background-size: 800px 100%;
+      animation: skeleton-shine 1.4s infinite linear;
+    }
+    .crm-skeleton-bar-sm { height: 56px; }
+    .crm-skeleton-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+    }
+    .crm-skeleton-card {
+      height: 148px; border-radius: 8px;
+      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
+      background-size: 800px 100%;
+      animation: skeleton-shine 1.4s infinite linear;
+    }
+  </style>
 </head>
 <body>
 
@@ -87,6 +123,19 @@
           </svg>
         </span>
         <span class="menu-label">Cronograma</span>
+      </button>
+
+      <div class="menu-section-label">Finanzas</div>
+
+      <button class="menu-btn" data-view="finanzas" id="menu-finanzas">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </span>
+        <span class="menu-label">Finanzas</span>
       </button>
 
       <div class="menu-section-label">Sistema</div>
@@ -331,98 +380,25 @@
 
       </section>
 
-      <!-- ════ PACIENTES ════ -->
+      <!-- ════ PACIENTES — CRM ════ -->
+      <!-- El contenido es 100% renderizado por renderGestorPacientes() en ui.js -->
       <section id="view-pacientes" class="view-section">
-        <div class="pac-layout">
-
-          <nav class="pac-sidenav">
-            <button class="pac-tab-btn pac-tab-active" id="tab-pac-buscar" data-tab="tab-pac-buscar">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              Buscar
-            </button>
-            <button class="pac-tab-btn" id="tab-pac-editar" data-tab="tab-pac-editar">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              Editar
-            </button>
-            <button class="pac-tab-btn" id="tab-pac-eliminar" data-tab="tab-pac-eliminar">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6"/><path d="M14 11v6"/>
-                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-              </svg>
-              Eliminar
-            </button>
-          </nav>
-
-          <div class="pac-content">
-
-            <!-- TAB BUSCAR -->
-            <div id="sec-pac-buscar">
-              <div class="pac-section-header">
-                <h3 class="pac-section-title">Buscar pacientes</h3>
-                <p class="pac-section-sub">Filtra por ciudad · maximo 50 resultados por defecto</p>
-              </div>
-              <div class="pac-filters">
-                <select class="input-text" id="pac-dpto-filtro" style="width:190px">
-                  <option value="">— Todos los departamentos —</option>
-                </select>
-                <select class="input-text" id="pac-select-ciudad" style="width:180px" disabled>
-                  <option value="">— Todas las ciudades —</option>
-                </select>
-                <input class="input-text" type="search" id="search-pac"
-                       placeholder="Buscar por nombre o telefono..." style="flex:1;min-width:200px"/>
-              </div>
-              <div class="pac-count-row">
-                <span id="pac-count-info" class="text-muted"></span>
-                <button class="btn btn-gray btn-sm" id="btn-pac-mostrar-todos" style="display:none">
-                  Mostrar todos
-                </button>
-              </div>
-              <div id="lista-pacientes">
-                <div class="empty-state">Selecciona una ciudad o busca un paciente</div>
-              </div>
-            </div>
-
-            <!-- TAB EDITAR -->
-            <div id="sec-pac-editar" style="display:none">
-              <div class="pac-section-header">
-                <h3 class="pac-section-title">Editar paciente</h3>
-                <p class="pac-section-sub">Busca el paciente y modifica sus datos · el telefono no es editable</p>
-              </div>
-              <input class="input-text" type="search" id="search-pac-editar"
-                     placeholder="Buscar por nombre o telefono..."
-                     style="margin-bottom:8px" autocomplete="off"/>
-              <div id="resultados-editar"
-                   class="pac-resultados-wrap"></div>
-              <div id="pac-editar-form"></div>
-            </div>
-
-            <!-- TAB ELIMINAR -->
-            <div id="sec-pac-eliminar" style="display:none">
-              <div class="pac-section-header">
-                <h3 class="pac-section-title">Eliminar paciente</h3>
-                <p class="pac-section-sub pac-section-sub-danger">
-                  Accion permanente e irreversible
-                </p>
-              </div>
-              <input class="input-text" type="search" id="search-pac-eliminar"
-                     placeholder="Buscar por nombre o telefono..."
-                     style="margin-bottom:8px" autocomplete="off"/>
-              <div id="resultados-eliminar"
-                   class="pac-resultados-wrap"></div>
-              <div id="alert-eliminar-pac" style="margin-top:10px"></div>
-            </div>
-
+        <!-- Esqueleto de carga — reemplazado por ui.js al entrar a la vista -->
+        <div class="crm-skeleton" id="crm-skeleton">
+          <div class="crm-skeleton-header">
+            <div class="crm-skeleton-stat"></div>
+            <div class="crm-skeleton-stat"></div>
+            <div class="crm-skeleton-stat"></div>
+          </div>
+          <div class="crm-skeleton-bar"></div>
+          <div class="crm-skeleton-bar crm-skeleton-bar-sm"></div>
+          <div class="crm-skeleton-cards">
+            <div class="crm-skeleton-card"></div>
+            <div class="crm-skeleton-card"></div>
+            <div class="crm-skeleton-card"></div>
+            <div class="crm-skeleton-card"></div>
+            <div class="crm-skeleton-card"></div>
+            <div class="crm-skeleton-card"></div>
           </div>
         </div>
       </section>
@@ -629,6 +605,65 @@
       </section>
 
     </div><!-- /page-content -->
+
+      <!-- FINANZAS -->
+      <section id="view-finanzas" class="view-section">
+        <div class="view-body">
+
+          <div class="kpi-row" style="margin-bottom:24px">
+            <div class="kpi-card kpi-green">
+              <div class="kpi-top"><div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div></div>
+              <div class="kpi-value" id="fin-total-dia">—</div>
+              <div class="kpi-label">Ingresos hoy</div>
+              <div class="kpi-sub" id="fin-sub-sesiones">— sesiones</div>
+            </div>
+            <div class="kpi-card kpi-purple">
+              <div class="kpi-top"><div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </div></div>
+              <div class="kpi-value" id="fin-total-mes">—</div>
+              <div class="kpi-label">Ingresos del mes</div>
+              <div class="kpi-sub" id="fin-sub-mes">— sesiones</div>
+            </div>
+            <div class="kpi-card kpi-yellow">
+              <div class="kpi-top"><div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div></div>
+              <div class="kpi-value" id="fin-canceladas-dia">—</div>
+              <div class="kpi-label">Canceladas hoy</div>
+              <div class="kpi-sub">control anti-fraude</div>
+            </div>
+            <div class="kpi-card kpi-blue">
+              <div class="kpi-top"><div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div></div>
+              <div class="kpi-value" id="fin-meds-dia">—</div>
+              <div class="kpi-label">Adicionales cobrados</div>
+              <div class="kpi-sub">medicamentos hoy</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div>
+                <h3 style="margin:0;font-size:15px;font-weight:600">Desprendible del día</h3>
+                <p style="margin:4px 0 0;font-size:12px;color:var(--text-muted)" id="fin-fecha-desprendible"></p>
+              </div>
+              <button class="btn btn-soft btn-sm" id="btn-imprimir-desprendible">🖨 Imprimir</button>
+            </div>
+            <div id="fin-tabla-dia"><div class="empty-state">Cargando sesiones del día...</div></div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin:0 0 12px;font-size:15px;font-weight:600;color:#c0392b">⚠ Citas canceladas hoy</h3>
+            <div id="fin-tabla-canceladas"><div class="empty-state">Cargando...</div></div>
+          </div>
+
+        </div>
+      </section>
+
   </div><!-- /main-area -->
 </div><!-- /app-container -->
 
@@ -862,6 +897,64 @@
   initDashboard();
   initConfiguracion();
 </script>
+
+<!-- ══ MODAL Registrar cobro ══ -->
+<div class="modal-overlay" id="modal-cobro">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" data-close="modal-cobro">×</button>
+    <h2 class="modal-title">Registrar cobro de sesión</h2>
+
+    <input type="hidden" id="cobro-cita-id"/>
+    <input type="hidden" id="cobro-cliente-id"/>
+    <input type="hidden" id="cobro-cliente-ciudad"/>
+    <input type="hidden" id="cobro-hora"/>
+    <input type="hidden" id="cobro-tipo-sesion"/>
+
+    <div style="margin-bottom:14px;padding:10px 14px;background:var(--bg-secondary);border-radius:8px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Paciente</div>
+      <div id="cobro-cliente-nombre" style="font-weight:600;font-size:15px">—</div>
+    </div>
+
+    <div class="form-row-2col" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="form-label">Tarifa sesión ($)</label>
+        <input class="input-text" type="number" id="cobro-tarifa" value="50000" min="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de sesión</label>
+        <input class="input-text" type="text" id="cobro-tipo-display" readonly
+               style="background:var(--bg-secondary);cursor:default"/>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="form-label">Medicamentos / ítems adicionales</label>
+      <div id="cobro-meds-lista" style="margin-bottom:8px"></div>
+      <button class="btn btn-soft btn-sm" id="btn-add-med" type="button">+ Agregar ítem</button>
+    </div>
+
+    <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span style="color:var(--text-muted)">Tarifa sesión</span>
+        <span id="cobro-resumen-tarifa">$50.000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+        <span style="color:var(--text-muted)">Medicamentos</span>
+        <span id="cobro-resumen-meds">$0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;border-top:1px solid var(--border);padding-top:8px">
+        <span>Total a cobrar</span>
+        <span id="cobro-resumen-total" style="color:var(--color-green)">$50.000</span>
+      </div>
+    </div>
+
+    <div id="alert-cobro"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-cobro">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cobro">Confirmar y completar</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
