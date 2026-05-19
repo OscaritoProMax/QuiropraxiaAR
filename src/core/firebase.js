@@ -6,13 +6,13 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDAbqMBBb7-zXYn-RKDGE16vLi-zeOEJLo",
-  authDomain: "quiromasajes-753c1.firebaseapp.com",
-  projectId: "quiromasajes-753c1",
-  storageBucket: "quiromasajes-753c1.firebasestorage.app",
-  messagingSenderId: "663937519041",
-  appId: "1:663937519041:web:23fce6ce0500dabb7d3340",
-  measurementId: "G-MB2VCYYYRZ"
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Inicializar Firebase
