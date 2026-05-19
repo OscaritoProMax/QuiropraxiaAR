@@ -6,7 +6,6 @@ import { auth, db }           from '../../core/firebase.js';
 import { protegerPagina }     from '../../core/router.js';
 import { renderCronograma, autoCompletarCitasViejas } from '../../modules/dashboard/cronograma.js';
 import { getDocs, collection } from 'firebase/firestore';
-import { renderDashboardPaneles } from '../../modules/dashboard/ui.js';
 
 import { logout, crearUsuario, getUsuarioPorId,
          ROLES, tienePermiso }                      from '../../core/authService.js';
@@ -24,8 +23,8 @@ import { mostrarAlerta, abrirModal, cerrarModal,
          bindSelectGeo, bindSelectPais }             from '../../shared/helpers.js';
 import { renderPerfil, renderEstadisticas, renderCitasHoy,
          renderSlots, renderPacientes, renderPills,
-         renderResultadosBusqueda, renderFormEditar,
-         renderUsuarios }                           from '../../modules/dashboard/ui.js';
+         renderDashboardPaneles,
+         renderResultadosBusqueda, renderFormEditar } from '../../modules/dashboard/ui.js';
 
 // ══════════════════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -51,7 +50,7 @@ export function initSecretaria() {
   bindFormPaciente();
   bindFormCita();
   bindFormReprogramar();
-  bindFormUsuario();
+  // bindFormUsuario — solo admin
   bindCronograma();
   initAuth();
 }
@@ -108,12 +107,12 @@ function poblarSelectsHorarios() {
 async function initAuth() {
   // protegerPagina verifica sesión y rol — redirige al login si no hay acceso.
   // Para Paso 3: cambiar a ['Administrador', 'Secretaria'] según la página.
-  usuarioActual = await protegerPagina('Administrador');
+  usuarioActual = await protegerPagina(['Administrador', 'Secretaria']);
 
   renderPerfil(usuarioActual);
 
   if (!tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
-    document.getElementById('menu-usuarios').style.display = 'none';
+    const _mu = document.getElementById('menu-usuarios'); if (_mu) _mu.style.display = 'none';
   }
 
   await Promise.all([
@@ -206,7 +205,8 @@ async function mostrarVista(vista, btn) {
      }
 
   if (vista === 'usuarios' && tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
-    actions.appendChild(crearBtn('+ Nuevo usuario', () => abrirModal('modal-usuario')));
+    const modalUsr = document.getElementById('modal-usuario');
+    if (modalUsr) actions.appendChild(crearBtn('+ Nuevo usuario', () => abrirModal('modal-usuario')));
     await cargarUsuarios();
   }
 }
@@ -326,8 +326,7 @@ function bindEditorPaciente() {
     renderResultadosBusqueda('resultados-editar', lista,
       (paciente) => {
         pacEditando = paciente;
-        window.__DEPARTAMENTOS__ = DEPARTAMENTOS;
-        window.__PAISES__        = PAISES;
+        window.__CIUDADES__ = CIUDADES;
         renderFormEditar(paciente);
         bindGuardarEditar();
         document.getElementById('resultados-editar').innerHTML = '';
@@ -676,35 +675,18 @@ function bindFormReprogramar() {
 // USUARIOS
 // ══════════════════════════════════════════════════════════
 async function cargarUsuarios() {
+  const tbody = document.getElementById('usuarios-tbody');
+  if (!tbody) return; // no existe en secretaria
   const snap  = await getDocs(collection(db, 'usuarios'));
   const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderUsuarios(lista);
 }
 
 function bindFormUsuario() {
-  document.getElementById('btn-guardar-usr').addEventListener('click', async () => {
-    const btn      = document.getElementById('btn-guardar-usr');
-    const nombre   = document.getElementById('u-nombre').value.trim();
-    const email    = document.getElementById('u-email').value.trim();
-    const password = document.getElementById('u-password').value;
-    const rol      = document.getElementById('u-rol').value;
-
-    btn.textContent = 'Creando...'; btn.disabled = true;
-    const res = await crearUsuario(nombre, email, password, rol);
-
-    if (res.ok) {
-      mostrarAlerta('alert-form-usr', 'Usuario creado.', 'success');
-      await cargarUsuarios();
-      setTimeout(() => {
-        cerrarModal('modal-usuario');
-        ['u-nombre','u-email','u-password'].forEach(id => { document.getElementById(id).value = ''; });
-      }, 900);
-    } else {
-      mostrarAlerta('alert-form-usr', res.error, 'error');
-    }
-
-    btn.textContent = 'Crear usuario'; btn.disabled = false;
-  });
+  // No disponible en secretaria — el modal de usuarios no existe en este HTML
+  const btn = document.getElementById('btn-guardar-usr');
+  if (!btn) return; // salir silenciosamente si no existe el elemento
+  btn.addEventListener('click', async () => {});
 }
 
 // ══════════════════════════════════════════════════════════

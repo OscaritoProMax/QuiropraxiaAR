@@ -1,8 +1,8 @@
 import { defineConfig, loadEnv } from 'vite';
-
+ 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-
+ 
   return {
     base: './',
     build: {
@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
+      hmr: {
+        overlay: false, // desactiva el reload automático — errores visibles solo en consola
+      },
       proxy: {
         '/api/gemini': {
           target: 'https://generativelanguage.googleapis.com',

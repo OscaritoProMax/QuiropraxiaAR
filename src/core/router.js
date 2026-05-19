@@ -1,21 +1,12 @@
 // src/core/router.js — Paso 2: Protección de rutas y redirección por rol
-//
-// USO:
-//   En cada página protegida (dashboard, secretaria, callcenter):
-//     import { protegerPagina } from '../../core/router.js';
-//     protegerPagina('Administrador');   // rol requerido
-//
-//   En loginController.js, reemplazar window.location.href por:
-//     import { redirigirPorRol } from '../../core/router.js';
-//     redirigirPorRol(usuario);
 
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth }               from './firebase.js';
 import { getUsuarioPorId }    from './authService.js';
 
-// ── Mapa de rutas por rol ─────────────────────────────────
-// Cuando existan las páginas de secretaria y callcenter
-// solo hay que añadir su ruta aquí — sin tocar nada más.
+// ── Detectar base path según dónde estamos ────────────────
+// Con base: './' de Vite, las rutas absolutas no funcionan.
+// Usamos rutas relativas desde la raíz del servidor.
 const RUTAS_POR_ROL = {
   'Administrador': '/src/pages/admin/dashboard.html',
   'Secretaria':    '/src/pages/secretaria/index.html',
@@ -24,30 +15,31 @@ const RUTAS_POR_ROL = {
 
 const RUTA_LOGIN = '/index.html';
 
+// ── Página actual ─────────────────────────────────────────
+function rutaActual() {
+  return window.location.pathname;
+}
+
+function esRutaDeRol(rol) {
+  const ruta = RUTAS_POR_ROL[rol];
+  return ruta && rutaActual().endsWith(ruta.replace(/^\//, ''));
+}
+
 // ── Redirigir al destino correcto según rol ───────────────
-// Llamar justo después de un login exitoso.
 export function redirigirPorRol(usuario) {
   const destino = RUTAS_POR_ROL[usuario?.rol] ?? RUTA_LOGIN;
+
+  // ── GUARD: no redirigir si ya estamos en la página correcta ──
+  // Evita el loop infinito cuando protegerPagina llama redirigirPorRol
+  if (rutaActual().includes(destino.replace('/src/pages/', '').replace('.html', ''))) {
+    console.warn('[router] Ya estamos en la página correcta — redirect cancelado');
+    return;
+  }
+
   window.location.href = destino;
 }
 
 // ── Proteger una página ───────────────────────────────────
-// Llamar al inicio de cada página protegida.
-// Si no hay sesión activa → redirige al login.
-// Si el rol no tiene permiso → redirige al login.
-//
-// @param {string|string[]|null} rolRequerido
-//   null  = cualquier usuario autenticado puede entrar
-//   'Administrador' = solo ese rol
-//   ['Administrador','Secretaria'] = cualquiera de esos roles
-//
-// Retorna una Promise que resuelve con el usuario si tiene acceso,
-// o redirige si no. Úsala con await para pausar el init del módulo.
-//
-// Ejemplo:
-//   const usuario = await protegerPagina(['Administrador', 'Secretaria']);
-//   renderPerfil(usuario);
-//
 export function protegerPagina(rolRequerido = null) {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -72,7 +64,12 @@ export function protegerPagina(rolRequerido = null) {
           : [rolRequerido];
 
         if (!rolesPermitidos.includes(usuario.rol)) {
-          // Tiene sesión pero no tiene permiso → mandarlo a su página correcta
+          // ── GUARD: si ya estamos en la página de su rol, resolver ──
+          if (esRutaDeRol(usuario.rol)) {
+            resolve(usuario);
+            return;
+          }
+          // Tiene sesión pero rol incorrecto → mandarlo a su página
           redirigirPorRol(usuario);
           return;
         }
