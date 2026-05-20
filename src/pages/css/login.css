@@ -1,6 +1,11 @@
 /* ============================================================
-   LOGIN — Quiromasajes (versión pulida)
+   LOGIN — Quiromasajes (versión optimizada para Usabilidad y Móviles)
    ============================================================ */
+
+/* Configuración Global de Caja */
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -11,8 +16,8 @@ body {
   align-items: center;
   justify-content: center;
 
-  /* Fondo gris elegante */
-  background: linear-gradient(135deg, #f2f2f2, #e4e7eb, #d6d9dd);
+  /* Fondo con gradiente radial azulado (Estilo Gemini) */
+  background: radial-gradient(circle at center, #e8f1ff 0%, #f5f9ff 50%, #ffffff 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -30,7 +35,7 @@ body {
   animation: fadeIn 0.4s ease;
 }
 
-/* ── PANEL IZQUIERDO (branding) ───────────────────── */
+/* ── PANEL IZQUIERDO (branding - Escritorio) ────────── */
 .login-banner {
   width: 45%;
   background: linear-gradient(145deg, #0A76D8, #0558a8);
@@ -56,20 +61,25 @@ body {
   margin-bottom: 25px;
 }
 
-/* LOGO */
+/* LOGO ESCRITORIO (Bordes limpios de alta definición) */
 .login-banner-icon {
   display: flex;
   justify-content: center;
   align-items: center;
-
   margin: 25px 0 30px 0;
 }
 
 .login-banner-icon img {
-  width: 140px;
-  height: auto;
-
-  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.2));
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 50%;
+  
+  background-color: #ffffff; 
+  padding: 10px; 
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); 
+  border: 1px solid rgba(10, 118, 216, 0.1); 
+  
   transition: transform 0.3s ease;
 }
 
@@ -85,10 +95,14 @@ body {
   padding: 0 10px;
 }
 
+/* ── COMPONENTE: Branding Exclusivo para Móviles ────── */
+.login-mobile-branding {
+  display: none; /* Oculto en computadoras */
+}
+
 /* ── PANEL DERECHO (formulario) ───────────────────── */
 .login-form-panel {
   width: 55%;
-
   background: linear-gradient(145deg, #f1f3f5, #e2e6ea);
   padding: 45px;
 
@@ -113,7 +127,58 @@ body {
   margin-bottom: 30px;
 }
 
-/* ── FORM ───────────────────────── */
+/* ── COMPONENTES INTEGRADOS (Google Auth & Separador) ── */
+.btn-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  border: 1.5px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  color: #212529;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-google:hover {
+  border-color: #0A76D8;
+  background: #f8fbff;
+  color: #0A76D8;
+}
+
+.btn-google:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-google svg {
+  flex-shrink: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e9ecef;
+}
+
+/* ── FORMULARIO ──────────────────── */
 .form-group {
   margin-bottom: 18px;
 }
@@ -129,36 +194,31 @@ body {
 /* INPUTS */
 .input-text {
   width: 100%;
-  padding: 12px;
-
+  padding: 12px 14px;
   background: #ffffff;
   border: 1px solid #d0d5da;
   border-radius: 8px;
-
+  font-size: 15px;
   transition: all 0.25s ease;
 }
 
 .input-text:focus {
   outline: none;
   border-color: #0A76D8;
-  box-shadow: 0 0 0 2px rgba(10,118,216,0.15);
+  box-shadow: 0 0 0 3px rgba(10,118,216,0.15);
 }
 
-/* BOTÓN */
+/* BOTÓN DE INGRESO */
 .login-btn {
-
   text-align: center;
   width: 100%;
   padding: 12px;
-
   border: none;
   border-radius: 8px;
-
   background: #0A76D8;
   color: white;
   font-size: 15px;
   font-weight: 600;
-
   cursor: pointer;
   transition: all 0.25s ease;
 }
@@ -172,12 +232,12 @@ body {
   transform: scale(0.98);
 }
 
-/* LINK */
+/* LINKS */
 .login-link {
   text-align: center;
   font-size: 13px;
   color: #7a869a;
-  margin-top: 15px;
+  margin-top: 18px;
 }
 
 .login-link a {
@@ -190,91 +250,100 @@ body {
   text-decoration: underline;
 }
 
-/* ERROR */
-#login-error {
-  display: none;
-  background: #fdecea;
-  color: #c0392b;
-  border-left: 3px solid #c0392b;
-  border-radius: 5px;
-  padding: 10px;
-  margin-bottom: 15px;
-  font-size: 13px;
-}
-
-#login-error.visible {
-  display: block;
-}
-
-/* ── ANIMACIÓN ─────────────────── */
+/* ANIMACIONES */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── RESPONSIVE ───────────────── */
+/* ── RESPONSIVE / USABILIDAD MÓVIL (Punto de Quiebre) ── */
 @media (max-width: 768px) {
+  body {
+    padding: 16px; /* Evita que la tarjeta toque los bordes del dispositivo */
+  }
+
+  .login-wrapper {
+    max-width: 440px; /* Ancho ergonómico óptimo para una lectura en smartphone */
+    min-height: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    background: #ffffff; /* Unifica el fondo del contenedor */
+  }
+
   .login-banner {
-    display: none;
+    display: none; /* Ocultamos el panel pesado lateral de escritorio */
   }
 
   .login-form-panel {
     width: 100%;
-    padding: 35px;
+    padding: 30px 20px; /* Reducción de paddings laterales para ganar espacio en inputs */
+    background: #ffffff;
   }
 
-  .login-wrapper {
-    max-width: 420px;
+  /* Activamos la cabecera de marca compacta en móviles */
+  .login-mobile-branding {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .login-mobile-branding img {
+    width: 75px;
+    height: 75px;
+    object-fit: contain;
+    border-radius: 50%;
+    background-color: #ffffff;
+    padding: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(10, 118, 216, 0.08);
+    margin-bottom: 8px;
+  }
+
+  .login-mobile-branding h2 {
+    font-size: 19px;
+    font-weight: 700;
+    color: #1c2434;
+    margin: 0;
+  }
+
+  .login-mobile-branding p {
+    font-size: 12px;
+    color: #6c757d;
+    margin: 2px 0 0 0;
+  }
+
+  /* Ajustes finos de textos */
+  .login-header-text {
+    font-size: 22px;
+  }
+  
+  .login-sub-text {
+    font-size: 13px;
+    margin-bottom: 24px;
   }
 }
 
-/* ── MENSAJE DE ERROR MODERNO ───────────────────── */
+/* ── MENSAJES DE ERROR MODERNO ───────────────────── */
 #error-msg {
   display: none;
-
   background: #fdecea;
   color: #c0392b;
-
   border-left: 4px solid #e74c3c;
   border-radius: 8px;
-
   padding: 12px 14px;
   margin-bottom: 18px;
-
   font-size: 13px;
   font-weight: 500;
-
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-
-  animation: fadeError 0.3s ease;
 }
 
-/* CUANDO ES VISIBLE */
 #error-msg.show {
   display: block;
 }
 
-/* ÍCONO OPCIONAL */
 #error-msg::before {
-  content: "⚠";
+  content: "⚠ ";
   margin-right: 8px;
   font-size: 14px;
-}
-
-/* ANIMACIÓN SUAVE */
-@keyframes fadeError {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
