@@ -9,19 +9,20 @@ import {
   signInWithPopup
 } from "firebase/auth";
 import {
-  doc, setDoc, getDoc, serverTimestamp, onSnapshot, updateDoc
+  doc, setDoc, getDoc, serverTimestamp, onSnapshot
 } from "firebase/firestore";
 import { auth, db } from "./firebase";   // ← mismo directorio core/
 
 let desuscribirConcurrencia = null;
-// 🛡️ NUEVO: Generador a prueba de fallos para celulares o navegadores antiguos
+
+// 🛡️ Generador a prueba de fallos para celulares o navegadores antiguos
 function generarTokenUnico() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Respaldo matemático si crypto falla
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
+
 // ── Roles disponibles ─────────────────────────────────────
 export const ROLES = {
   ADMINISTRADOR: "Administrador",
@@ -35,16 +36,16 @@ export async function login(email, password) {
     const credencial = await signInWithEmailAndPassword(auth, email, password);
     const user       = credencial.user;
 
-    // ── NUEVO: Control de Concurrencia ──
+    // ── CONTROL DE CONCURRENCIA OPTIMIZADO ──
     const tokenSesionUnico = generarTokenUnico();
     localStorage.setItem('id_sesion_local', tokenSesionUnico);
 
-    // Guardamos el token en el documento de su perfil
-    await updateDoc(doc(db, "usuarios", user.uid), {
+    // ✅ OPTIMIZACIÓN: Guardamos en Firestore en segundo plano (sin usar await que congele la interfaz)
+    setDoc(doc(db, "usuarios", user.uid), {
       sesionActivaId: tokenSesionUnico
-    });
+    }, { merge: true }).catch((err) => console.error("Error guardando sesión activa:", err));
 
-    // Registrar sesión histórica (Tu lógica existente)
+    // Registrar sesión histórica (en segundo plano)
     setDoc(doc(db, "sesiones", user.uid + "_" + Date.now()), {
       usuarioId:    user.uid,
       email:        user.email,
@@ -52,48 +53,43 @@ export async function login(email, password) {
       fechaIngreso: serverTimestamp()
     }).catch(() => {});
 
+    // Obtenemos los datos del usuario para el router
     const datosUsuario = await getUsuarioPorId(user.uid);
     return { ok: true, usuario: datosUsuario };
 
-  } catch {
+  } catch (error) {
+    console.error("Error en login:", error);
     return { ok: false, error: "Credenciales incorrectas." };
   }
 }
 
-// ── Login con Google (Actualizado con Diagnóstico y Concurrencia) ──
+// ── Login con Google ──────────────────
 export async function loginConGoogle() {
   try {
     const provider   = new GoogleAuthProvider();
     const credencial = await signInWithPopup(auth, provider);
     const user       = credencial.user;
 
-    // Verificar si el usuario está registrado en tu base de datos
     const datosUsuario = await getUsuarioPorId(user.uid);
 
     if (!datosUsuario) {
       await signOut(auth);
-      return {
-        ok: false,
-        error: "Tu cuenta de Google no está autorizada. Contacta al administrador."
-      };
+      return { ok: false, error: "Tu cuenta de Google no está autorizada. Contacta al administrador." };
     }
 
     if (!datosUsuario.activo) {
       await signOut(auth);
-      return {
-        ok: false,
-        error: "Tu cuenta está desactivada. Contacta al administrador."
-      };
+      return { ok: false, error: "Tu cuenta está desactivada. Contacta al administrador." };
     }
 
-    // ── CONTROL DE CONCURRENCIA (Pestaña Única) ──
-    const tokenSesionUnico = generarTokenUnico();
+    // ── CONTROL DE CONCURRENCIA OPTIMIZADO ──
+    const tokenSesionUnico = generarTokenUnico(); // ✅ Corregido aquí también para evitar bloqueos
     localStorage.setItem('id_sesion_local', tokenSesionUnico);
 
-    // Guardamos el token en Firestore usando merge:true para no borrar otros campos
-    await setDoc(doc(db, "usuarios", user.uid), {
+    // ✅ Guardamos en segundo plano para velocidad instantánea
+    setDoc(doc(db, "usuarios", user.uid), {
       sesionActivaId: tokenSesionUnico
-    }, { merge: true });
+    }, { merge: true }).catch((err) => console.error("Error guardando sesión activa Google:", err));
 
     // Registrar sesión histórica
     setDoc(doc(db, "sesiones", user.uid + "_" + Date.now()), {
@@ -106,31 +102,26 @@ export async function loginConGoogle() {
     return { ok: true, usuario: datosUsuario };
 
   } catch (error) {
-    // 🚨 ESTA LÍNEA ES VITAL: Nos dirá en la consola el código de error real de Firebase
     console.error("🔥 Error real de Firebase Auth con Google:", error);
-
     if (error.code === "auth/popup-closed-by-user") {
       return { ok: false, error: "" };
     }
-    // Te mostrará el código exacto en el recuadro rojo para saber qué configuración falta
     return { ok: false, error: `Error de autenticación (${error.code || 'Bloqueo COOP'}). Intenta de nuevo.` };
   }
 }
 
-// ── NUEVO: FUNCIÓN VIGILANTE DE CONCURRENCIA ─────────────────
+// ── FUNCIÓN VIGILANTE DE CONCURRENCIA (Blindada contra fugas de memoria) ─────────────────
 export function iniciarVigilanteConcurrencia(usuarioObjeto) {
   const uid = usuarioObjeto?.id || usuarioObjeto?.uid;
   if (!uid) return;
 
-  // 🛡️ PROTECCIÓN DE MEMORIA: Apagamos cualquier vigilante fantasma previo
+  // 🛡️ PROTECCIÓN DE MEMORIA: Matamos cualquier escucha activa vieja para que la app no se ponga pesada
   if (desuscribirConcurrencia) {
     desuscribirConcurrencia();
     desuscribirConcurrencia = null;
   }
 
   const idSesionLocal = localStorage.getItem('id_sesion_local');
-  
-  // 🛡️ PROTECCIÓN 2: Si por error no hay token, no ejecutamos nada
   if (!idSesionLocal) return;
 
   const userRef = doc(db, 'usuarios', uid);
@@ -140,18 +131,17 @@ export function iniciarVigilanteConcurrencia(usuarioObjeto) {
       const datosUsuario = snapshot.data();
       
       if (datosUsuario.sesionActivaId && datosUsuario.sesionActivaId !== idSesionLocal) {
-  
         if (desuscribirConcurrencia) {
           desuscribirConcurrencia();
           desuscribirConcurrencia = null;
         }
-
         console.warn("Sesión cerrada automáticamente porque se abrió en otro dispositivo.");
         cerrarSesion(); 
       }
     }
   });
 }
+
 // ── Cierre de sesión manual o por inactividad ─────────────────
 export async function cerrarSesion() {
   try {
@@ -160,7 +150,6 @@ export async function cerrarSesion() {
       desuscribirConcurrencia = null;
     }
     localStorage.removeItem('id_sesion_local');
-
     await signOut(auth); 
     window.location.href = '/index.html';
   } catch (error) {
@@ -176,13 +165,13 @@ export async function logout() {
       desuscribirConcurrencia = null;
     }
     localStorage.removeItem('id_sesion_local');
-
     await signOut(auth);
     return { ok: true };
   } catch {
     return { ok: false, error: "Error al cerrar sesión." };
   }
 }
+
 // ── Crear usuario (solo Administrador) ───────────────────
 export async function crearUsuario(nombre, email, password, rol) {
   try {
@@ -243,26 +232,20 @@ export function onAuthChange(callback) {
   });
 }
 
-
 // ── Controlador de Inactividad (Timeout de sesión) ────────────
 let temporizadorInactividad;
-const TIEMPO_LIMITE = 10 * 60 * 1000; // 15 minutos en milisegundos (puedes ajustarlo)
+const TIEMPO_LIMITE = 10 * 60 * 1000; 
 
 export function iniciarVigilanteInactividad() {
-  // Función que reinicia el cronómetro cada vez que el usuario hace algo
   function reiniciarTemporizador() {
     clearTimeout(temporizadorInactividad);
-    
     temporizadorInactividad = setTimeout(() => {
       console.warn("⏳ Sesión expirada por inactividad.");
-      // Remover los escuchadores para evitar bucles
       limpiarVigilante();
-      // Forzar el cierre de sesión
       cerrarSesion();
     }, TIEMPO_LIMITE);
   }
 
-  // Función para dejar de vigilar (útil si cierra sesión manualmente)
   function limpiarVigilante() {
     window.removeEventListener('mousemove', reiniciarTemporizador);
     window.removeEventListener('keydown', reiniciarTemporizador);
@@ -272,13 +255,11 @@ export function iniciarVigilanteInactividad() {
     clearTimeout(temporizadorInactividad);
   }
 
-  // Escuchar todos los eventos que demuestran que el usuario está "vivo"
   window.addEventListener('mousemove', reiniciarTemporizador);
   window.addEventListener('keydown', reiniciarTemporizador);
   window.addEventListener('click', reiniciarTemporizador);
-  window.addEventListener('touchstart', reiniciarTemporizador); // Para celulares
+  window.addEventListener('touchstart', reiniciarTemporizador); 
   window.addEventListener('scroll', reiniciarTemporizador);
 
-  // Iniciar el cronómetro por primera vez al cargar
   reiniciarTemporizador();
 }
