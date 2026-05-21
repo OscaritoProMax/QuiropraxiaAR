@@ -9,10 +9,19 @@ import {
   signInWithPopup
 } from "firebase/auth";
 import {
-  doc, setDoc, getDoc, serverTimestamp
+  doc, setDoc, getDoc, serverTimestamp, onSnapshot, updateDoc
 } from "firebase/firestore";
 import { auth, db } from "./firebase";   // ← mismo directorio core/
 
+let desuscribirConcurrencia = null;
+// 🛡️ NUEVO: Generador a prueba de fallos para celulares o navegadores antiguos
+function generarTokenUnico() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Respaldo matemático si crypto falla
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
 // ── Roles disponibles ─────────────────────────────────────
 export const ROLES = {
   ADMINISTRADOR: "Administrador",
@@ -26,7 +35,16 @@ export async function login(email, password) {
     const credencial = await signInWithEmailAndPassword(auth, email, password);
     const user       = credencial.user;
 
-    // Registrar sesión (sin bloquear)
+    // ── NUEVO: Control de Concurrencia ──
+    const tokenSesionUnico = generarTokenUnico();
+    localStorage.setItem('id_sesion_local', tokenSesionUnico);
+
+    // Guardamos el token en el documento de su perfil
+    await updateDoc(doc(db, "usuarios", user.uid), {
+      sesionActivaId: tokenSesionUnico
+    });
+
+    // Registrar sesión histórica (Tu lógica existente)
     setDoc(doc(db, "sesiones", user.uid + "_" + Date.now()), {
       usuarioId:    user.uid,
       email:        user.email,
@@ -42,16 +60,14 @@ export async function login(email, password) {
   }
 }
 
-// ── Login con Google ──────────────────────────────────────
+// ── Login con Google (Actualizado con Diagnóstico y Concurrencia) ──
 export async function loginConGoogle() {
   try {
     const provider   = new GoogleAuthProvider();
     const credencial = await signInWithPopup(auth, provider);
     const user       = credencial.user;
 
-    // ── VERIFICACIÓN DE SEGURIDAD ─────────────────────
-    // Solo puede entrar si ya existe en Firestore
-    // El admin debe haber creado su cuenta previamente
+    // Verificar si el usuario está registrado en tu base de datos
     const datosUsuario = await getUsuarioPorId(user.uid);
 
     if (!datosUsuario) {
@@ -70,7 +86,16 @@ export async function loginConGoogle() {
       };
     }
 
-    // ── Registrar sesión ──────────────────────────────
+    // ── CONTROL DE CONCURRENCIA (Pestaña Única) ──
+    const tokenSesionUnico = generarTokenUnico();
+    localStorage.setItem('id_sesion_local', tokenSesionUnico);
+
+    // Guardamos el token en Firestore usando merge:true para no borrar otros campos
+    await setDoc(doc(db, "usuarios", user.uid), {
+      sesionActivaId: tokenSesionUnico
+    }, { merge: true });
+
+    // Registrar sesión histórica
     setDoc(doc(db, "sesiones", user.uid + "_" + Date.now()), {
       usuarioId:    user.uid,
       email:        user.email,
@@ -81,23 +106,83 @@ export async function loginConGoogle() {
     return { ok: true, usuario: datosUsuario };
 
   } catch (error) {
+    // 🚨 ESTA LÍNEA ES VITAL: Nos dirá en la consola el código de error real de Firebase
+    console.error("🔥 Error real de Firebase Auth con Google:", error);
+
     if (error.code === "auth/popup-closed-by-user") {
       return { ok: false, error: "" };
     }
-    return { ok: false, error: "No se pudo iniciar con Google. Intenta de nuevo." };
+    // Te mostrará el código exacto en el recuadro rojo para saber qué configuración falta
+    return { ok: false, error: `Error de autenticación (${error.code || 'Bloqueo COOP'}). Intenta de nuevo.` };
   }
 }
 
-// ── Logout ────────────────────────────────────────────────
+// ── NUEVO: FUNCIÓN VIGILANTE DE CONCURRENCIA ─────────────────
+export function iniciarVigilanteConcurrencia(usuarioObjeto) {
+  const uid = usuarioObjeto?.id || usuarioObjeto?.uid;
+  if (!uid) return;
+
+  // 🛡️ PROTECCIÓN DE MEMORIA: Apagamos cualquier vigilante fantasma previo
+  if (desuscribirConcurrencia) {
+    desuscribirConcurrencia();
+    desuscribirConcurrencia = null;
+  }
+
+  const idSesionLocal = localStorage.getItem('id_sesion_local');
+  
+  // 🛡️ PROTECCIÓN 2: Si por error no hay token, no ejecutamos nada
+  if (!idSesionLocal) return;
+
+  const userRef = doc(db, 'usuarios', uid);
+
+  desuscribirConcurrencia = onSnapshot(userRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const datosUsuario = snapshot.data();
+      
+      if (datosUsuario.sesionActivaId && datosUsuario.sesionActivaId !== idSesionLocal) {
+  
+        if (desuscribirConcurrencia) {
+          desuscribirConcurrencia();
+          desuscribirConcurrencia = null;
+        }
+
+        console.warn("Sesión cerrada automáticamente porque se abrió en otro dispositivo.");
+        cerrarSesion(); 
+      }
+    }
+  });
+}
+// ── Cierre de sesión manual o por inactividad ─────────────────
+export async function cerrarSesion() {
+  try {
+    if (desuscribirConcurrencia) {
+      desuscribirConcurrencia();
+      desuscribirConcurrencia = null;
+    }
+    localStorage.removeItem('id_sesion_local');
+
+    await signOut(auth); 
+    window.location.href = '/index.html';
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+  }
+}
+
+// ── Logout alternativo ──────────────────────────────────────
 export async function logout() {
   try {
+    if (desuscribirConcurrencia) {
+      desuscribirConcurrencia();
+      desuscribirConcurrencia = null;
+    }
+    localStorage.removeItem('id_sesion_local');
+
     await signOut(auth);
     return { ok: true };
   } catch {
     return { ok: false, error: "Error al cerrar sesión." };
   }
 }
-
 // ── Crear usuario (solo Administrador) ───────────────────
 export async function crearUsuario(nombre, email, password, rol) {
   try {
@@ -158,20 +243,6 @@ export function onAuthChange(callback) {
   });
 }
 
-// ── Cierre de sesión manual o por inactividad ─────────────────
-export async function cerrarSesion() {
-  try {
-    await signOut(auth); // Le dice a Firebase que cierre la sesión
-    // Opcional: limpiar datos locales si guardas algo
-    // localStorage.clear(); 
-    // sessionStorage.clear();
-    
-    // Redirigir al index (login)
-    window.location.href = '/index.html';
-  } catch (error) {
-    console.error("Error al cerrar sesión:", error);
-  }
-}
 
 // ── Controlador de Inactividad (Timeout de sesión) ────────────
 let temporizadorInactividad;

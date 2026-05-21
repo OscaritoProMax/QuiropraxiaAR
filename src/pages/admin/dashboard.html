@@ -865,12 +865,12 @@
 <script type="module">
   // Importamos el router de protección y las constantes de roles
   import { protegerPagina } from '../../core/router.js';
-  import { ROLES } from '../../core/authService.js';
+  // NUEVO: Importamos también "iniciarVigilanteConcurrencia" de tus servicios
+  import { ROLES, iniciarVigilanteInactividad, iniciarVigilanteConcurrencia } from '../../core/authService.js'; 
   
-  // Importamos tus iniciadores de interfaz y vigilante
+  // Importamos tus iniciadores de interfaz
   import { initDashboard } from '../../modules/dashboard/handlers.js';
   import { initConfiguracion } from '../../modules/dashboard/configuracion.js';
-  import { iniciarVigilanteInactividad } from '../../core/authService.js';
 
   // 1. EJECUTAR EL ESCUDO DE PROTECCIÓN ANTES DE INICIALIZAR NADA
   protegerPagina(ROLES.ADMINISTRADOR).then((usuario) => {
@@ -879,10 +879,12 @@
     // 2. Inicializar los submódulos de forma segura
     initDashboard();
     initConfiguracion();
-    iniciarVigilanteInactividad();
+    iniciarVigilanteInactividad(); // Tu control de inactividad de 10 minutos
+    
+    // 🔥 NUEVO: Activar el detector de inicio de sesión duplicado
+    iniciarVigilanteConcurrencia(usuario); 
 
     // 3. DESTRUIR EL BLOQUEO VISUAL: Revela la interfaz limpiamente
-    // Al remover la etiqueta <style>, el body recupera su visualización exacta (Grid/Flex) sin romper el diseño.
     document.getElementById('security-guard')?.remove();
   });
 </script>
