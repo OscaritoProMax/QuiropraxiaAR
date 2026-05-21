@@ -1173,3 +1173,127 @@ body {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ══════════════════════════════════════════════════════════
+   OPTIMIZACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES (< 768px)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  
+  /* 1. Permitir scroll vertical en móviles en todo el viewport si es necesario */
+  body {
+    overflow-y: auto !important;
+  }
+
+  .app-container {
+    flex-direction: column; /* Cambia de fila a columna */
+    height: auto;
+    overflow: visible;
+  }
+
+  /* 2. Transformar el Sidebar en un Menú de Navegación Inferior Fijo */
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100% !important; /* Ocupa todo el ancho */
+    height: 60px !important; /* Altura compacta estilo app */
+    flex-direction: row; /* Elementos uno al lado del otro */
+    z-index: 999;
+    border-right: none;
+    border-top: 1.5px solid var(--th-sidebar-border);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    animation: none;
+  }
+
+  /* Ocultar elementos innecesarios en la barra móvil */
+  .sidebar-header,
+  .profile-container,
+  .menu-section-label,
+  .logout-area,
+  .menu-btn .menu-label {
+    display: none !important;
+  }
+
+  /* Contenedor de botones del menú alineados horizontalmente */
+  .menu-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    padding: 0 10px !important;
+    overflow-y: visible;
+  }
+
+  /* Botones del menú optimizados para clics táctiles */
+  .menu-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    height: 100%;
+    padding: 6px 12px !important;
+    border-right: none !important;
+    border-bottom: 3px solid transparent;
+    flex: 1;
+  }
+
+  .menu-btn.menu-active {
+    border-bottom-color: var(--primary) !important; /* Indicador activo abajo */
+    background-color: transparent !important;
+    color: var(--primary) !important;
+  }
+
+  .menu-icon svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* 3. Ajustes del Área Principal y Contenido */
+  .main-area {
+    width: 100%;
+    min-height: 100vh;
+    overflow: visible;
+    padding-bottom: 70px; /* Margen inferior para que el menú fijo no tape el contenido */
+  }
+
+  /* Topbar móvil super compacta */
+  .topbar {
+    padding: 12px 16px !important;
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+
+  .topbar-left h1 {
+    font-size: 17px !important;
+  }
+
+  .topbar-left p,
+  .topbar-clock {
+    display: none !important; /* Ocultamos el reloj y subtítulo para ganar espacio limpio */
+  }
+
+  /* El contenedor de las vistas internas */
+  .page-content {
+    padding: 16px 14px !important;
+    overflow: visible;
+  }
+
+  /* 4. Rediseño adaptativo de las Tarjetas de Estadísticas (KPIs) */
+  .kpi-grid {
+    grid-template-columns: 1fr !important; /* Un KPI por fila para evitar compresión textal */
+    gap: 10px !important;
+    margin-bottom: 16px;
+  }
+
+  .kpi-card {
+    padding: 14px 16px !important;
+  }
+
+  .kpi-value {
+    font-size: 22px !important; /* Texto un poco más sutil */
+  }
+}
