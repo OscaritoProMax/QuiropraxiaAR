@@ -7,39 +7,10 @@
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/pacientes.css">
-  <style>
-    /* ── Skeleton de carga — vista pacientes ── */
-    @keyframes skeleton-shine {
-      0%   { background-position: -400px 0; }
-      100% { background-position: 400px 0; }
-    }
-    .crm-skeleton { padding: 4px 0; }
-    .crm-skeleton-header {
-      display: flex; gap: 12px; margin-bottom: 16px;
-    }
-    .crm-skeleton-stat {
-      height: 68px; flex: 1; border-radius: 6px;
-      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
-      background-size: 800px 100%;
-      animation: skeleton-shine 1.4s infinite linear;
-    }
-    .crm-skeleton-bar {
-      height: 48px; border-radius: 8px; margin-bottom: 12px;
-      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
-      background-size: 800px 100%;
-      animation: skeleton-shine 1.4s infinite linear;
-    }
-    .crm-skeleton-bar-sm { height: 56px; }
-    .crm-skeleton-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 12px;
-    }
-    .crm-skeleton-card {
-      height: 148px; border-radius: 8px;
-      background: linear-gradient(90deg, #f0f4f8 25%, #e4eaf2 50%, #f0f4f8 75%);
-      background-size: 800px 100%;
-      animation: skeleton-shine 1.4s infinite linear;
+
+  <style id="security-guard">
+    body {
+      display: none !important;
     }
   </style>
 </head>
@@ -892,10 +863,28 @@
 
 
 <script type="module">
+  // Importamos el router de protección y las constantes de roles
+  import { protegerPagina } from '../../core/router.js';
+  import { ROLES } from '../../core/authService.js';
+  
+  // Importamos tus iniciadores de interfaz y vigilante
   import { initDashboard } from '../../modules/dashboard/handlers.js';
   import { initConfiguracion } from '../../modules/dashboard/configuracion.js';
-  initDashboard();
-  initConfiguracion();
+  import { iniciarVigilanteInactividad } from '../../core/authService.js';
+
+  // 1. EJECUTAR EL ESCUDO DE PROTECCIÓN ANTES DE INICIALIZAR NADA
+  protegerPagina(ROLES.ADMINISTRADOR).then((usuario) => {
+    // Si la promesa se resuelve con éxito, significa que el usuario inició sesión correctamente y es Administrador.
+    
+    // 2. Inicializar los submódulos de forma segura
+    initDashboard();
+    initConfiguracion();
+    iniciarVigilanteInactividad();
+
+    // 3. DESTRUIR EL BLOQUEO VISUAL: Revela la interfaz limpiamente
+    // Al remover la etiqueta <style>, el body recupera su visualización exacta (Grid/Flex) sin romper el diseño.
+    document.getElementById('security-guard')?.remove();
+  });
 </script>
 
 <!-- ══ MODAL Registrar cobro ══ -->

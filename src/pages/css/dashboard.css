@@ -1297,3 +1297,508 @@ body {
     font-size: 22px !important; /* Texto un poco más sutil */
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════
+   OPTIMIZACIÓN RESPONSIVE MEJORADA (MÓVILES ULTRA COMPACTO)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  
+  body {
+    overflow-y: auto !important;
+  }
+
+  .app-container {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* SIDEBAR EN NAVBAR INFERIOR */
+  .sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 60px !important;
+    flex-direction: row !important;
+    z-index: 999 !important;
+    border-right: none !important;
+    border-top: 1.5px solid var(--th-sidebar-border) !important;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
+    background: var(--th-sidebar) !important;
+    padding: 0 !important;
+  }
+
+  .sidebar-header, 
+  .profile-container, 
+  .menu-section-label, 
+  .logout-area, 
+  .menu-btn .menu-label {
+    display: none !important;
+  }
+
+  .menu-container {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 0 10px !important;
+    margin: 0 !important;
+    overflow-y: visible !important;
+  }
+
+  .menu-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    padding: 6px 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+
+  .menu-btn.menu-active {
+    border-bottom: 3px solid var(--primary) !important;
+    background-color: transparent !important;
+    color: var(--primary) !important;
+  }
+
+  /* CONTENIDO PRINCIPAL */
+  .main-area {
+    width: 100% !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    padding-bottom: 75px !important; /* Espacio para que el menú inferior no tape contenido */
+  }
+
+  /* Reducción de la barra superior para empujar el contenido hacia arriba */
+  .topbar {
+    padding: 10px 14px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 99 !important;
+    background: var(--th-topbar) !important;
+    border-bottom: 1px solid var(--th-sidebar-border) !important;
+  }
+
+  .topbar-left h1 {
+    font-size: 16px !important;
+    margin: 0 !important;
+  }
+
+  .topbar-left p, 
+  .topbar-clock {
+    display: none !important;
+  }
+
+  .page-content {
+    padding: 12px 12px !important;
+  }
+
+  /* 🚀 AGRUPACIÓN EN 2 COLUMNAS PARA MÓVILES */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important; /* Dos tarjetas por fila */
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    width: 100% !important;
+  }
+
+  /* Rediseño minificado de tarjetas individuales */
+  .kpi-card {
+    padding: 10px 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    height: auto !important;
+    min-height: 85px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Redimensionar el ícono para que no compita con el texto */
+  .kpi-icon {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+  }
+  
+  .kpi-icon svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .kpi-label {
+    font-size: 11px !important;
+    margin-top: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .kpi-value {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* ============================================================
+   FORZAR BUSCADOR (.crm-search-bar) ARRIBA EN MÓVILES (< 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  
+  body {
+    overflow-y: auto !important;
+  }
+
+  .app-container {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* NAVBAR INFERIOR (MÓVIL) */
+  .sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 60px !important;
+    flex-direction: row !important;
+    z-index: 999 !important;
+    border-right: none !important;
+    border-top: 1.5px solid var(--th-sidebar-border) !important;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
+    background: var(--th-sidebar) !important;
+    padding: 0 !important;
+  }
+
+  .sidebar-header, 
+  .profile-container, 
+  .menu-section-label, 
+  .logout-area, 
+  .menu-btn .menu-label {
+    display: none !important;
+  }
+
+  .menu-container {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 0 10px !important;
+    margin: 0 !important;
+  }
+
+  .menu-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    padding: 6px 0 !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+
+  .menu-btn.menu-active {
+    border-bottom: 3px solid var(--primary) !important;
+    color: var(--primary) !important;
+  }
+
+  /* ÁREA PRINCIPAL Y CONTENEDOR FLEX */
+  .main-area {
+    width: 100% !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    padding-bottom: 80px !important; /* Margen para no tapar contenido con la barra inferior */
+  }
+
+  .page-content {
+    padding: 12px 12px !important;
+    display: flex !important;
+    flex-direction: column !important; /* Obliga a los hijos a ordenarse en vertical */
+  }
+
+  /* 📊 TARJETAS EN DOS COLUMNAS */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .kpi-card {
+    padding: 10px 12px !important;
+    min-height: 85px !important;
+  }
+
+  /* 🔍 ACCIÓN MAESTRA: ENVIAR LA BARRA DE BÚSQUEDA HASTA ARRIBA */
+  .crm-search-bar {
+    order: -1 !important; /* Esto la empuja visualmente al inicio de .page-content */
+    display: flex !important;
+    flex-direction: column !important; /* Apilar elementos internos en móviles */
+    gap: 10px !important;
+    width: 100% !important;
+    background: var(--th-card) !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--th-card-border) !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* Optimizar las cajas de entrada internas de la búsqueda */
+  .crm-search-wrap, 
+  .crm-ciudad-wrap {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .crm-search-input {
+    width: 100% !important;
+    height: 42px !important; /* Altura cómoda para clics táctiles */
+    font-size: 14px !important;
+  }
+
+  /* Alinear de forma compacta el contador y los botones de vista */
+  .crm-view-toggle {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+  }
+
+  .crm-count {
+    display: block !important;
+    text-align: right !important;
+    font-size: 13px !important;
+    color: var(--text-muted) !important;
+    margin-top: 4px !important;
+  }
+}
+
+/* ============================================================
+   REDISEÑO MÓVIL DEFINITIVO: .crm-search-bar COMPACTO Y ARRIBA
+   ============================================================ */
+@media (max-width: 768px) {
+  
+  body {
+    overflow-y: auto !important;
+  }
+
+  .app-container {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* SIDEBAR -> BOTTOM NAVIGATION BAR */
+  .sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 60px !important;
+    flex-direction: row !important;
+    z-index: 999 !important;
+    border-right: none !important;
+    border-top: 1.5px solid var(--th-sidebar-border) !important;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
+    background: var(--th-sidebar) !important;
+    padding: 0 !important;
+  }
+
+  .sidebar-header, 
+  .profile-container, 
+  .menu-section-label, 
+  .logout-area, 
+  .menu-btn .menu-label {
+    display: none !important;
+  }
+
+  .menu-container {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 0 10px !important;
+    margin: 0 !important;
+    overflow-y: visible !important;
+  }
+
+  .menu-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    padding: 6px 0 !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+
+  .menu-btn.menu-active {
+    border-bottom: 3px solid var(--primary) !important;
+    color: var(--primary) !important;
+    background-color: transparent !important;
+  }
+
+  /* CONTENIDO PRINCIPAL */
+  .main-area {
+    width: 100% !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    padding-bottom: 85px !important;
+  }
+
+  /* FORZAR COMPORTAMIENTO FLEX VERTICAL EN EL CONTENEDOR DE LA PÁGINA */
+  .page-content {
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* TARJETAS KPI EN 2 COLUMNAS COMPACTAS */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+    width: 100% !important;
+  }
+
+  .kpi-card {
+    padding: 10px 12px !important;
+    min-height: 85px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  /* ============================================================
+     🚀 SECCIÓN REOPTIMIZADA: .crm-search-bar MAESTRO 🚀
+     ============================================================ */
+  .crm-search-bar {
+    order: -1 !important; /* Mueve obligatoriamente la barra por encima de todo */
+    display: flex !important;
+    flex-direction: column !important; /* Los inputs ya no van uno al lado del otro, van en vertical */
+    gap: 12px !important; /* Separación perfecta entre elementos */
+    width: 100% !important;
+    max-width: 100% !important;
+    background: var(--th-card) !important;
+    border: 1px solid var(--th-card-border) !important;
+    border-radius: 10px !important;
+    padding: 14px !important;
+    margin: 0 0 16px 0 !important;
+    height: auto !important; /* Elimina cualquier restricción de altura */
+    box-sizing: border-box !important;
+  }
+
+  /* Hacer que los wrappers de los buscadores ocupen todo el ancho libre */
+  .crm-search-wrap, 
+  .crm-ciudad-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    position: relative !important; /* Permite posicionar iconos absolutos dentro */
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Forzar que los inputs se ensanchen al 100% sin romperse */
+  .crm-search-input {
+    width: 100% !important;
+    height: 44px !important; /* Altura ideal móvil táctil */
+    padding-left: 36px !important; /* Espacio para el icono izquierdo */
+    padding-right: 36px !important; /* Espacio para el botón de borrar derecho */
+    font-size: 14px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--th-sidebar-border) !important;
+    background: var(--th-input) !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+  }
+
+  /* Fijar iconos internos a la izquierda */
+  .crm-search-icon,
+  .crm-ciudad-wrap > svg {
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 5 !important;
+    pointer-events: none !important;
+    margin: 0 !important;
+  }
+
+  /* Botón X para borrar filtro de ciudad */
+  .crm-clear-ciudad {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: var(--th-profile-bg) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 22px !important;
+    height: 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 6 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Re-maquetación de los botones de vista e indicador de conteo */
+  .crm-view-toggle {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .crm-view-btn {
+    height: 38px !important;
+    width: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--th-card-border) !important;
+    background: var(--th-card) !important;
+    margin: 0 !important;
+  }
+
+  /* Creamos una sección inferior integrada en la tarjeta para separar vistas y contador */
+  .crm-search-bar > .crm-view-toggle {
+    width: 100% !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-top: 1px dashed var(--th-sidebar-border) !important;
+    padding-top: 10px !important;
+    margin-top: 4px !important;
+  }
+
+  /* Contador de pacientes centrado o alineado a la derecha */
+  .crm-count {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--th-text) !important;
+    margin: 0 !important;
+    display: inline-block !important;
+  }
+}

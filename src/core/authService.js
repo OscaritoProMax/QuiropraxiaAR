@@ -157,3 +157,57 @@ export function onAuthChange(callback) {
     }
   });
 }
+
+// ── Cierre de sesión manual o por inactividad ─────────────────
+export async function cerrarSesion() {
+  try {
+    await signOut(auth); // Le dice a Firebase que cierre la sesión
+    // Opcional: limpiar datos locales si guardas algo
+    // localStorage.clear(); 
+    // sessionStorage.clear();
+    
+    // Redirigir al index (login)
+    window.location.href = '/index.html';
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+  }
+}
+
+// ── Controlador de Inactividad (Timeout de sesión) ────────────
+let temporizadorInactividad;
+const TIEMPO_LIMITE = 10 * 60 * 1000; // 15 minutos en milisegundos (puedes ajustarlo)
+
+export function iniciarVigilanteInactividad() {
+  // Función que reinicia el cronómetro cada vez que el usuario hace algo
+  function reiniciarTemporizador() {
+    clearTimeout(temporizadorInactividad);
+    
+    temporizadorInactividad = setTimeout(() => {
+      console.warn("⏳ Sesión expirada por inactividad.");
+      // Remover los escuchadores para evitar bucles
+      limpiarVigilante();
+      // Forzar el cierre de sesión
+      cerrarSesion();
+    }, TIEMPO_LIMITE);
+  }
+
+  // Función para dejar de vigilar (útil si cierra sesión manualmente)
+  function limpiarVigilante() {
+    window.removeEventListener('mousemove', reiniciarTemporizador);
+    window.removeEventListener('keydown', reiniciarTemporizador);
+    window.removeEventListener('click', reiniciarTemporizador);
+    window.removeEventListener('touchstart', reiniciarTemporizador);
+    window.removeEventListener('scroll', reiniciarTemporizador);
+    clearTimeout(temporizadorInactividad);
+  }
+
+  // Escuchar todos los eventos que demuestran que el usuario está "vivo"
+  window.addEventListener('mousemove', reiniciarTemporizador);
+  window.addEventListener('keydown', reiniciarTemporizador);
+  window.addEventListener('click', reiniciarTemporizador);
+  window.addEventListener('touchstart', reiniciarTemporizador); // Para celulares
+  window.addEventListener('scroll', reiniciarTemporizador);
+
+  // Iniciar el cronómetro por primera vez al cargar
+  reiniciarTemporizador();
+}
