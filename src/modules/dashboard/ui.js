@@ -787,7 +787,7 @@ function _bindCrmIA(todos) {
 
     try {
       const GEMINI_KEY = import.meta.env?.VITE_GEMINI_KEY || '';
-      const endpoint   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+      const endpoint   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash:generateContent?key=${GEMINI_KEY}`;
 
       const r = await fetch(endpoint, {
         method:  'POST',
@@ -1119,13 +1119,13 @@ function initAgenteVoz(onVozCita) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
     estadoEl.textContent = 'Tu navegador no soporta voz. Usa Chrome o Edge.';
-    micBtn.disabled      = true;
+    micBtn.disabled      = false;
     micBtn.style.opacity = '0.4';
     return;
   }
 
   const rec = new SR();
-  rec.lang = 'es-CO'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
+  rec.lang = 'es-CO'; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
   let grabando = false; let citaExtraida = null;
 
   micBtn.addEventListener('click', () => {
@@ -1185,6 +1185,12 @@ function initAgenteVoz(onVozCita) {
     micBtn.disabled = false;
   };
 
+  rec.onspeechend = () => {
+  console.log("🎙️ Silencio detectado: Deteniendo micrófono de forma automática...");
+  if (grabando) {
+    rec.stop();}
+    }
+  
   rec.onerror = (e) => {
     grabando = false; micBtn.classList.remove('grabando'); micBtn.disabled = false;
     micHint.textContent = 'Presiona para hablar'; estadoEl.textContent = `Error: ${e.error}`;
@@ -1204,3 +1210,34 @@ function initAgenteVoz(onVozCita) {
     citaExtraida = null;
   });
 }
+
+// =========================================================================
+// NAVEGACIÓN INTELIGENTE DE TARJETAS KPI (DASHBOARD)
+// =========================================================================
+document.addEventListener('click', (e) => {
+  // 1. Verificamos que el clic haya sido dentro de una tarjeta KPI 
+  // Y que SOLO sea en la pantalla principal de Dashboard
+  const kpiCard = e.target.closest('#view-dashboard .kpi-card');
+  if (!kpiCard) return;
+
+  let vistaDestino = '';
+
+  // 2. Determinamos a dónde ir basados en el color de la tarjeta
+  if (kpiCard.classList.contains('kpi-blue') || kpiCard.classList.contains('kpi-cyan')) {
+    vistaDestino = 'citas';     // Citas hoy y Pendientes
+  } else if (kpiCard.classList.contains('kpi-yellow')) {
+    vistaDestino = 'pacientes'; // Pacientes activos
+  } else if (kpiCard.classList.contains('kpi-green') || kpiCard.classList.contains('kpi-purple') || kpiCard.classList.contains('kpi-red')) {
+    vistaDestino = 'finanzas';  // Ingresos del día, mes y Cancelaciones
+  }
+
+  // 3. Simulamos el clic en el botón correspondiente de tu menú lateral (Sidebar)
+  if (vistaDestino) {
+    const botonMenu = document.querySelector(`[data-view="${vistaDestino}"]`);
+    if (botonMenu) {
+      botonMenu.click();
+    } else {
+      console.warn(`No se encontró el botón del menú lateral para: ${vistaDestino}`);
+    }
+  }
+});

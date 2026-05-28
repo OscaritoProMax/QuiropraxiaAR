@@ -10,7 +10,9 @@ import { getDocs, collection } from 'firebase/firestore';
 import { renderDashboardPaneles, renderGestorPacientes } from './ui.js';
 
 import { logout, crearUsuario, getUsuarioPorId,
-         ROLES, tienePermiso }                      from '../../core/authService.js';
+         ROLES, tienePermiso,
+         iniciarVigilanteConcurrencia,
+         iniciarVigilanteInactividad }              from '../../core/authService.js';
 
 // ── Pacientes: se elimina DEPARTAMENTOS, se agrega colombiaService ──
 import { registrarPaciente, registrarPacienteRapido,
@@ -166,6 +168,12 @@ function actualizarSelectHoras(selectId, fecha, valorActual = null) {
 async function initAuth() {
   usuarioActual = await protegerPagina('Administrador');
   renderPerfil(usuarioActual);
+
+  // FIX: arrancar vigilantes DESPUÉS de tener el usuario confirmado.
+  // Esto garantiza que el token ya está en Firestore (fue escrito
+  // con await en loginConGoogle/login) antes de que onSnapshot evalúe.
+  iniciarVigilanteConcurrencia(usuarioActual);
+  iniciarVigilanteInactividad();
 
   if (!tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
     document.getElementById('menu-usuarios').style.display = 'none';

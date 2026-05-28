@@ -82,16 +82,19 @@ export async function loginConGoogle() {
       return { ok: false, error: "Tu cuenta está desactivada. Contacta al administrador." };
     }
 
-    // ── CONTROL DE CONCURRENCIA OPTIMIZADO ──
-    const tokenSesionUnico = generarTokenUnico(); // ✅ Corregido aquí también para evitar bloqueos
+    // ── CONTROL DE CONCURRENCIA — FIX RACE CONDITION ──
+    // CRITICO: debe ser await para que Firestore tenga el token
+    // ANTES de que el vigilante onSnapshot arranque en el dashboard.
+    const tokenSesionUnico = generarTokenUnico();
     localStorage.setItem('id_sesion_local', tokenSesionUnico);
 
-    // ✅ Guardamos en segundo plano para velocidad instantánea
-    setDoc(doc(db, "usuarios", user.uid), {
+    // FIX: await aqui — sin esto el vigilante lee el token viejo
+    // y cierra la sesion inmediatamente al llegar al dashboard.
+    await setDoc(doc(db, "usuarios", user.uid), {
       sesionActivaId: tokenSesionUnico
-    }, { merge: true }).catch((err) => console.error("Error guardando sesión activa Google:", err));
+    }, { merge: true });
 
-    // Registrar sesión histórica
+    // Registrar sesión histórica (segundo plano — este sí puede ser sin await)
     setDoc(doc(db, "sesiones", user.uid + "_" + Date.now()), {
       usuarioId:    user.uid,
       email:        user.email,
@@ -126,6 +129,11 @@ export function iniciarVigilanteConcurrencia(usuarioObjeto) {
 
   const userRef = doc(db, 'usuarios', uid);
 
+  // FIX: delay de arranque — da tiempo a que Firestore propague
+  // el token antes de que el primer snapshot lo evalúe.
+  // Sin este delay, el onSnapshot lee el token anterior y
+  // cierra la sesión recién iniciada con Google.
+  const _arrancarVigilante = () => {
   desuscribirConcurrencia = onSnapshot(userRef, (snapshot) => {
     if (snapshot.exists()) {
       const datosUsuario = snapshot.data();
@@ -140,6 +148,11 @@ export function iniciarVigilanteConcurrencia(usuarioObjeto) {
       }
     }
   });
+  }; // fin _arrancarVigilante
+
+  // 1500ms: margen seguro para propagación de Firestore
+  // incluso en conexiones lentas de Colombia (3G/4G rural).
+  setTimeout(_arrancarVigilante, 1500);
 }
 
 // ── Cierre de sesión manual o por inactividad ─────────────────
@@ -150,8 +163,10 @@ export async function cerrarSesion() {
       desuscribirConcurrencia = null;
     }
     localStorage.removeItem('id_sesion_local');
-    await signOut(auth); 
-    window.location.href = '/index.html';
+    await signOut(auth);
+    // FIX: replace en lugar de href para evitar entrada en historial
+    // y compatibilidad con Vite base path
+    window.location.replace('/index.html');
   } catch (error) {
     console.error("Error al cerrar sesión:", error);
   }

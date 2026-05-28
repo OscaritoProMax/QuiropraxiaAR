@@ -348,12 +348,15 @@ body {
   border-radius: 8px;
   padding: 16px 18px;
   transition: box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
 }
 .kpi-card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,.1);
   transform: translateY(-2px);
 }
-
+.kpi-clickable {
+  cursor: pointer;
+}
 .kpi-top {
   display: flex;
   align-items: center;
@@ -1182,6 +1185,42 @@ body {
   /* 1. Permitir scroll vertical en móviles en todo el viewport si es necesario */
   body {
     overflow-y: auto !important;
+  }
+
+  /* ============================================================
+     Ajustes para que .slot-row no desborde en móviles 
+     ============================================================ */
+  .slot-row {
+    display: flex !important;
+    flex-direction: column !important; /* Apila el contenido de arriba hacia abajo */
+    align-items: flex-start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+    padding: 12px !important;
+  }
+
+  /* Evitar que los textos largos (nombres o detalles) rompan la caja */
+  .slot-row > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Forzar que los botones de acción ocupen todo el ancho táctil */
+  .slot-row .btn,
+  .slot-row button,
+  .slot-row .actions {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    margin-top: 4px !important;
   }
 
   .app-container {
@@ -2013,5 +2052,123 @@ body {
     height: 42px !important;
     font-size: 14px !important;
     margin: 0 !important;
+  }
+}
+
+/* ============================================================
+   Ajuste definitivo para el Módulo de Citas en Pantallas Móviles
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* 1. Forzar que el contenedor principal de citas no se desborde */
+  .appointments-section,
+  .appointments-container,
+  .agenda-container,
+  .citas-container,
+  .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    padding: 10px !important;
+  }
+
+  /* 2. Si el módulo usa una tabla HTML nativa, la convertimos en tarjetas apiladas */
+  .appointments-table, 
+  .appointments-table tbody, 
+  .appointments-table tr, 
+  .appointments-table td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .appointments-table tr {
+    margin-bottom: 15px !important;
+    border: 1px solid var(--th-card-border, #ebebeb) !important;
+    border-radius: 8px !important;
+    background: var(--th-card, #ffffff) !important;
+    padding: 12px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+  }
+
+  .appointments-table td {
+    text-align: left !important;
+    padding: 6px 0 !important;
+    border: none !important;
+  }
+
+  /* 3. Transformar filas flex/grid (.cita-row o .cita-item) en bloques verticales */
+  .cita-row,
+  .cita-item,
+  .appointment-card {
+    display: flex !important;
+    flex-direction: column !important; /* Todo un elemento debajo de otro */
+    align-items: flex-start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important; /* Evita que flex empuje los bordes del móvil */
+    padding: 14px !important;
+    margin-bottom: 12px !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 4. Romper textos largos (nombres, notas, correos) para que no deformen la pantalla */
+  .cita-info, 
+  .cita-detalles, 
+  .patient-info,
+  .cita-item > div,
+  .appointment-detail,
+  .cita-row > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important; /* Permite salto de línea */
+    word-break: break-word !important; /* Corta palabras si es necesario */
+    overflow-wrap: break-word !important;
+    padding: 4px 0 !important;
+    text-align: left !important;
+    display: block !important;
+  }
+
+  /* 5. Alinear la etiqueta de la hora para que quede arriba de la tarjeta */
+  .cita-hora, 
+  .time-slot,
+  .cronograma-row > div:first-child {
+    width: auto !important;
+    max-width: fit-content !important;
+    margin-bottom: 10px !important;
+    display: inline-block !important;
+  }
+
+  /* 6. Botoneras de acciones (Atender, Modificar, Cancelar) apiladas verticalmente */
+  .cita-acciones, 
+  .appointment-actions,
+  .cita-item button,
+  .cita-row .actions,
+  .actions {
+    display: flex !important;
+    flex-direction: column !important; /* Un botón arriba del otro */
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed var(--th-divider, #ebebeb) !important;
+  }
+
+  /* 7. Forzar que los botones ocupen todo el ancho táctil */
+  .cita-acciones .btn,
+  .appointment-actions button,
+  .actions .btn,
+  .cita-item button {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 44px !important; /* Tamaño idóneo para pulsar con el dedo */
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }
