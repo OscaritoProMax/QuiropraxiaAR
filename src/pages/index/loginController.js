@@ -1,7 +1,7 @@
 // src/pages/index/loginController.js
 
 import { login, loginConGoogle }  from "../../core/authService.js";
-import { redirigirPorRol }        from "../../core/router.js";       // ← Paso 2
+import { redirigirPorRol }        from "../../core/router.js";       
 import {
   mostrarError,
   limpiarError,
@@ -43,7 +43,8 @@ export function initLogin() {
         return;
       }
 
-      redirigirPorRol(res.usuario);   // ← era: window.location.href = "./dashboard.html"
+      // 💡 CORRECCIÓN CLAVE: Esperamos a que el router procese la redirección
+      await redirigirPorRol(res.usuario);   
 
     } catch (err) {
       mostrarError("Error inesperado. Intenta de nuevo.");
@@ -67,7 +68,8 @@ export function initLogin() {
         return;
       }
 
-      redirigirPorRol(res.usuario);   // ← era: window.location.href = "./dashboard.html"
+      // 💡 CORRECCIÓN CLAVE: Esperamos a que el router procese la redirección
+      await redirigirPorRol(res.usuario);   
 
     } catch (err) {
       mostrarError("Error al iniciar con Google. Intenta de nuevo.");

@@ -787,7 +787,7 @@ function _bindCrmIA(todos) {
 
     try {
       const GEMINI_KEY = import.meta.env?.VITE_GEMINI_KEY || '';
-      const endpoint   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash:generateContent?key=${GEMINI_KEY}`;
+     const endpoint   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`;
 
       const r = await fetch(endpoint, {
         method:  'POST',

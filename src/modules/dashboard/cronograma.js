@@ -185,7 +185,13 @@ function tarjetaCita(cita, tipo) {
   }[tipo] || '#fff';
 
   return `
-    <div class="crono-card" style="border-left:4px solid ${borderColor};background:${bgColor}">
+    <div class="crono-card"
+      style="border-left:4px solid ${borderColor};background:${bgColor}"
+      data-cita-id="${cita.id}"
+      data-cliente-id="${cita.clienteId     || ''}"
+      data-cliente-ciudad="${cita.clienteCiudad || ''}"
+      data-tipo-sesion="${cita.tipo          || 'Ajuste general'}"
+      data-hora="${cita.hora}">
       <div class="crono-hora">${cita.hora}</div>
       <div class="crono-info">
         <div class="crono-nombre">${cita.clienteNombre}</div>

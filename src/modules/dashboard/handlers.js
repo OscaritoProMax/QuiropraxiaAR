@@ -10,9 +10,7 @@ import { getDocs, collection } from 'firebase/firestore';
 import { renderDashboardPaneles, renderGestorPacientes } from './ui.js';
 
 import { logout, crearUsuario, getUsuarioPorId,
-         ROLES, tienePermiso,
-         iniciarVigilanteConcurrencia,
-         iniciarVigilanteInactividad }              from '../../core/authService.js';
+         ROLES, tienePermiso }                      from '../../core/authService.js';
 
 // ── Pacientes: se elimina DEPARTAMENTOS, se agrega colombiaService ──
 import { registrarPaciente, registrarPacienteRapido,
@@ -29,6 +27,9 @@ import {
   restaurarUbicacion,
 }                                                    from '../pacientes/colombiaService.js';
 
+import { registrarPago, obtenerPagosHoy, obtenerPagosMes,
+         calcularTotalesDia, calcularTotalesMes,
+         formatCOP, TARIFA_BASE }                                   from '../finanzas/pagosService.js';
 import { agendarCita, cancelarCita, reprogramarCita,
          cambiarEstado, sugerirHorario, ESTADOS, HORARIOS }         from '../citas/citasService.js';
 
@@ -44,6 +45,7 @@ import { renderPerfil, renderEstadisticas, renderCitasHoy,
 // ESTADO GLOBAL
 // ══════════════════════════════════════════════════════════
 let usuarioActual     = null;
+let _cobroPendiente   = null;  // cita esperando confirmación de cobro
 let pacientesCache    = [];
 let citaReprogramarId = null;
 let ciudadActivaPills = '';
@@ -59,6 +61,7 @@ let _getUbicacionRapida    = () => '';   // registro rápido en cita
 export function initDashboard() {
   poblarSelectsCiudades();   // ahora async — carga API en paralelo
   poblarSelectsHorarios();
+  bindModalCobro();
   bindNavegacion();
   bindModalesGlobal();
   bindLogout();
@@ -169,12 +172,6 @@ async function initAuth() {
   usuarioActual = await protegerPagina('Administrador');
   renderPerfil(usuarioActual);
 
-  // FIX: arrancar vigilantes DESPUÉS de tener el usuario confirmado.
-  // Esto garantiza que el token ya está en Firestore (fue escrito
-  // con await en loginConGoogle/login) antes de que onSnapshot evalúe.
-  iniciarVigilanteConcurrencia(usuarioActual);
-  iniciarVigilanteInactividad();
-
   if (!tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
     document.getElementById('menu-usuarios').style.display = 'none';
   }
@@ -191,11 +188,24 @@ async function initAuth() {
 }
 
 async function completarCitaHoy(citaId) {
-  await cambiarEstado(citaId, ESTADOS.COMPLETADA);
-  await Promise.all([
-    renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
-    renderEstadisticas(),
-  ]);
+  const card = document.querySelector(`[data-crono-completar="${citaId}"]`)?.closest('.crono-card, .slot-item')
+            || document.querySelector(`[data-cita-id="${citaId}"]`);
+  abrirModalCobro({
+    citaId,
+    clienteId:     card?.dataset?.clienteId     || '',
+    clienteNombre: card?.querySelector('.crono-nombre, .slot-nombre')?.textContent?.trim() || '',
+    clienteCiudad: card?.dataset?.clienteCiudad || '',
+    hora:          card?.dataset?.hora || card?.querySelector('.crono-hora, .slot-hora')?.textContent?.trim() || '',
+    tipoSesion:    card?.dataset?.tipoSesion
+                || card?.querySelector('.crono-meta, .slot-tipo')?.textContent?.split('·')[0]?.trim()
+                || 'Ajuste general',
+    onConfirmar: async () => {
+      await Promise.all([
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+        renderEstadisticas(),
+      ]);
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -229,6 +239,7 @@ async function mostrarVista(vista, btn) {
     cronograma:  ['Cronograma del día',    'Citas de hoy por estado y hora'],
     usuarios:    ['Usuarios del sistema',  'Código 001 — Control de acceso'],
     configuracion: ['Configuración',       'Ajustes del sistema'],
+    finanzas:      ['Finanzas',              'Ingresos, cobros y control del día'],
   };
   const [titulo, sub] = titulos[vista] ?? ['', ''];
   document.getElementById('topbar-title').textContent = titulo;
@@ -274,6 +285,10 @@ async function mostrarVista(vista, btn) {
     await cargarCronograma();
   }
 
+  if (vista === 'finanzas') {
+    await renderVistaFinanzas();
+  }
+
   if (vista === 'usuarios' && tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
     actions.appendChild(crearBtn('+ Nuevo usuario', () => abrirModal('modal-usuario')));
     await cargarUsuarios();
@@ -304,9 +319,22 @@ function bindFiltrosFecha() {
 async function cargarSlotsFecha(fecha) {
   await renderSlots(fecha, {
     onAgendar:   (hora, fecha) => abrirModalCita(hora, fecha),
-    onCompletar: async (id, f) => {
-      await cambiarEstado(id, ESTADOS.COMPLETADA);
-      await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
+     onCompletar: async (id, f) => {
+       const slot = document.querySelector(`[data-completar="${id}"]`)?.closest('.slot-item')
+                 || document.querySelector(`[data-cita-id="${id}"]`);
+       abrirModalCobro({
+         citaId:        id,
+         clienteId:     slot?.dataset?.clienteId     || '',
+         clienteNombre: slot?.querySelector('.slot-nombre, .crono-nombre')?.textContent?.trim() || '',
+         clienteCiudad: slot?.dataset?.clienteCiudad || '',
+         hora:          slot?.dataset?.hora || f,
+         tipoSesion:    slot?.dataset?.tipoSesion
+                     || slot?.querySelector('.slot-tipo, .crono-meta')?.textContent?.split('·')[0]?.trim()
+                     || 'Ajuste general',
+        onConfirmar:   async () => {
+          await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
+        }
+      });
     },
     onReprogramar: (id, f) => {
       citaReprogramarId = id;
@@ -561,6 +589,336 @@ function abrirModalCita(horaPreseleccionada = null, fechaPreseleccionada = null)
   inputFecha.onchange = () => actualizarSelectHoras('c-hora', inputFecha.value);
 
   abrirModal('modal-cita');
+}
+
+
+// ══════════════════════════════════════════════════════════
+// MODAL DE COBRO
+// ══════════════════════════════════════════════════════════
+function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar }) {
+  _cobroPendiente = { citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar };
+
+  document.getElementById('cobro-cita-id').value        = citaId;
+  document.getElementById('cobro-cliente-id').value     = clienteId;
+  document.getElementById('cobro-cliente-ciudad').value = clienteCiudad;
+  document.getElementById('cobro-hora').value           = hora;
+  document.getElementById('cobro-tipo-sesion').value    = tipoSesion;
+  document.getElementById('cobro-cliente-nombre').textContent = clienteNombre || 'Paciente';
+  document.getElementById('cobro-tipo-display').value   = tipoSesion || 'Ajuste general';
+  document.getElementById('cobro-tarifa').value         = TARIFA_BASE;
+  document.getElementById('cobro-meds-lista').innerHTML = '';
+  document.getElementById('alert-cobro').innerHTML      = '';
+  actualizarResumenCobro();
+  abrirModal('modal-cobro');
+}
+
+function actualizarResumenCobro() {
+  const tarifa = Number(document.getElementById('cobro-tarifa')?.value) || 0;
+  let totalMeds = 0;
+  document.querySelectorAll('.cobro-med-precio').forEach(inp => {
+    totalMeds += Number(inp.value) || 0;
+  });
+  const total = tarifa + totalMeds;
+  document.getElementById('cobro-resumen-tarifa').textContent = formatCOP(tarifa);
+  document.getElementById('cobro-resumen-meds').textContent   = formatCOP(totalMeds);
+  document.getElementById('cobro-resumen-total').textContent  = formatCOP(total);
+}
+
+function bindModalCobro() {
+  document.getElementById('cobro-tarifa')
+    ?.addEventListener('input', actualizarResumenCobro);
+
+  document.getElementById('btn-add-med')
+    ?.addEventListener('click', () => {
+      const lista = document.getElementById('cobro-meds-lista');
+      const fila  = document.createElement('div');
+      fila.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+      fila.innerHTML = `
+        <input class="input-text cobro-med-nombre" placeholder="Nombre del ítem" style="flex:2" type="text"/>
+        <input class="input-text cobro-med-precio" placeholder="Precio $" style="flex:1" type="number" min="0"/>
+        <button class="btn btn-danger btn-sm" type="button" style="padding:4px 8px"
+                onclick="this.closest('div').remove();window.actualizarResumenCobro()">✕</button>`;
+      fila.querySelector('.cobro-med-precio')
+          .addEventListener('input', actualizarResumenCobro);
+      lista.appendChild(fila);
+    });
+
+  document.getElementById('btn-confirmar-cobro')
+    ?.addEventListener('click', async () => {
+      if (!_cobroPendiente) return;
+      const btn = document.getElementById('btn-confirmar-cobro');
+      btn.disabled = true;
+      btn.textContent = 'Procesando...';
+
+      const tarifa = Number(document.getElementById('cobro-tarifa').value) || TARIFA_BASE;
+      const medicamentos = [];
+      document.querySelectorAll('#cobro-meds-lista > div').forEach(fila => {
+        const nombre = fila.querySelector('.cobro-med-nombre')?.value?.trim();
+        const precio = Number(fila.querySelector('.cobro-med-precio')?.value) || 0;
+        if (nombre) medicamentos.push({ nombre, precio });
+      });
+
+      await cambiarEstado(_cobroPendiente.citaId, ESTADOS.COMPLETADA);
+
+      const resPago = await registrarPago({
+        citaId:        _cobroPendiente.citaId,
+        clienteId:     _cobroPendiente.clienteId,
+        clienteNombre: _cobroPendiente.clienteNombre,
+        clienteCiudad: _cobroPendiente.clienteCiudad,
+        fecha:         HOY,
+        hora:          _cobroPendiente.hora,
+        tipoSesion:    _cobroPendiente.tipoSesion,
+        tarifaBase:    tarifa,
+        medicamentos,
+        usuarioId:     usuarioActual?.uid,
+      });
+
+      cerrarModal('modal-cobro');
+      btn.disabled = false;
+      btn.textContent = 'Confirmar y completar';
+
+      if (resPago.ok) {
+        mostrarAlerta('alert-global', `Cobro registrado: ${formatCOP(resPago.totalCobrado)}`, 'success');
+      }
+
+      await _cobroPendiente.onConfirmar?.();
+      _cobroPendiente = null;
+    });
+}
+
+window.actualizarResumenCobro = actualizarResumenCobro;
+
+// ══════════════════════════════════════════════════════════
+// VISTA FINANZAS
+// ══════════════════════════════════════════════════════════
+async function renderVistaFinanzas() {
+  const mes = HOY.slice(0, 7);
+
+  const [pagosHoy, pagosMes] = await Promise.all([
+    obtenerPagosHoy(HOY),
+    obtenerPagosMes(mes),
+  ]);
+
+  const { obtenerCitasPorFecha } = await import('../citas/citasService.js');
+  const citasHoy   = await obtenerCitasPorFecha(HOY);
+  const canceladas = citasHoy.filter(c => c.estado === ESTADOS.CANCELADA);
+
+  const totDia = calcularTotalesDia(pagosHoy);
+  const totMes = calcularTotalesMes(pagosMes);
+
+  // ── KPIs ──────────────────────────────────────────────
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('fin-total-dia',      formatCOP(totDia.total));
+  setEl('fin-sub-sesiones',   `${totDia.cantidad} sesión${totDia.cantidad !== 1 ? 'es' : ''}`);
+  setEl('fin-total-mes',      formatCOP(totMes.total));
+  setEl('fin-sub-mes',        `${totMes.cantidad} sesiones este mes`);
+  setEl('fin-meds-dia',       formatCOP(totDia.soloMeds));
+  setEl('fin-canceladas-dia', String(canceladas.length));
+
+  const fechaFmt = new Date(HOY + 'T12:00:00').toLocaleDateString('es-CO', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  setEl('fin-fecha-desprendible', fechaFmt);
+
+  // ── Tabla del día ─────────────────────────────────────
+  const tablaDia = document.getElementById('fin-tabla-dia');
+  if (tablaDia) {
+    if (!pagosHoy.length) {
+      tablaDia.innerHTML = '<div class="empty-state">No hay cobros registrados hoy</div>';
+    } else {
+      tablaDia.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--bg-secondary)">
+              <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-weight:600">Hora</th>
+              <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-weight:600">Paciente</th>
+              <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-weight:600">Tipo sesión</th>
+              <th style="padding:8px 12px;text-align:right;color:var(--text-muted);font-weight:600">Tarifa</th>
+              <th style="padding:8px 12px;text-align:right;color:var(--text-muted);font-weight:600">Adicionales</th>
+              <th style="padding:8px 12px;text-align:right;color:var(--text-muted);font-weight:600">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pagosHoy.map((p, i) => `
+              <tr style="border-bottom:1px solid var(--border);background:${i%2===0?'transparent':'var(--bg-secondary)'}">
+                <td style="padding:8px 12px;color:var(--text-muted)">${p.hora}</td>
+                <td style="padding:8px 12px;font-weight:500">${p.clienteNombre}</td>
+                <td style="padding:8px 12px;color:var(--text-muted)">${p.tipoSesion}</td>
+                <td style="padding:8px 12px;text-align:right">${formatCOP(p.tarifaBase)}</td>
+                <td style="padding:8px 12px;text-align:right;color:${p.totalMedicamentos>0?'var(--color-green)':'var(--text-muted)'}">
+                  ${p.totalMedicamentos>0 ? formatCOP(p.totalMedicamentos) : '—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--color-green)">${formatCOP(p.totalCobrado)}</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--bg-secondary);font-weight:700;border-top:2px solid var(--border)">
+              <td colspan="3" style="padding:10px 12px;font-size:13px">TOTAL DÍA · ${totDia.cantidad} sesiones</td>
+              <td style="padding:10px 12px;text-align:right">${formatCOP(totDia.soloSesiones)}</td>
+              <td style="padding:10px 12px;text-align:right">${formatCOP(totDia.soloMeds)}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--color-green);font-size:15px">${formatCOP(totDia.total)}</td>
+            </tr>
+          </tfoot>
+        </table>`;
+    }
+  }
+
+  // ── Tabla canceladas ──────────────────────────────────
+  const tablaCanceladas = document.getElementById('fin-tabla-canceladas');
+  if (tablaCanceladas) {
+    if (!canceladas.length) {
+      tablaCanceladas.innerHTML = '<div class="empty-state" style="color:var(--color-green)">✓ Sin cancelaciones hoy</div>';
+    } else {
+      tablaCanceladas.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#fff5f5">
+              <th style="padding:8px 12px;text-align:left;color:#c0392b;font-weight:600">Hora</th>
+              <th style="padding:8px 12px;text-align:left;color:#c0392b;font-weight:600">Paciente</th>
+              <th style="padding:8px 12px;text-align:left;color:#c0392b;font-weight:600">Ciudad</th>
+              <th style="padding:8px 12px;text-align:left;color:#c0392b;font-weight:600">Tipo sesión</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${canceladas.map(c => `
+              <tr style="border-bottom:1px solid #fde8e8">
+                <td style="padding:8px 12px">${c.hora}</td>
+                <td style="padding:8px 12px;font-weight:500">${c.clienteNombre}</td>
+                <td style="padding:8px 12px;color:var(--text-muted)">${c.clienteCiudad||'—'}</td>
+                <td style="padding:8px 12px;color:var(--text-muted)">${c.tipo}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+  }
+
+  // Guardar datos para el botón imprimir (se actualiza cada vez que se carga la vista)
+  window.__finanzasDia__ = { pagosHoy, canceladas, totDia, fechaFmt };
+}
+
+// ── Desprendible empresarial para impresión / PDF ─────────
+function imprimirDesprendible(pagosHoy, canceladas, totDia, fechaFmt) {
+  const ahora   = new Date();
+  const horaImp = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  const usuNom  = document.getElementById('sidebar-nombre')?.textContent?.trim() || 'Administrador';
+
+  const desprendible = document.getElementById('print-desprendible');
+  if (!desprendible) return;
+
+  desprendible.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:32px 40px;color:#111">
+
+      <!-- Encabezado empresarial -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0A76D8;padding-bottom:16px;margin-bottom:20px">
+        <div>
+          <div style="font-size:22px;font-weight:700;color:#0A76D8;letter-spacing:-0.5px">Quiromasajes E.F</div>
+          <div style="font-size:12px;color:#555;margin-top:3px">Santa Rosa de Viterbo, Boyacá — Colombia</div>
+          <div style="font-size:12px;color:#555">NIT / Registro clínica quiropráctica</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:600;color:#333">DESPRENDIBLE FINANCIERO</div>
+          <div style="font-size:12px;color:#555;margin-top:4px">${fechaFmt}</div>
+          <div style="font-size:11px;color:#888;margin-top:2px">Impreso: ${horaImp} · por ${usuNom}</div>
+        </div>
+      </div>
+
+      <!-- KPIs resumen -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:#f0f9f0;border:1px solid #c3e6c3;border-radius:6px;padding:12px 16px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#1a7a47">${formatCOP(totDia.total)}</div>
+          <div style="font-size:11px;color:#555;margin-top:3px">TOTAL INGRESOS DÍA</div>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c3d0f5;border-radius:6px;padding:12px 16px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#0A76D8">${totDia.cantidad}</div>
+          <div style="font-size:11px;color:#555;margin-top:3px">SESIONES ATENDIDAS</div>
+        </div>
+        <div style="background:#fff8f0;border:1px solid #f5d9b0;border-radius:6px;padding:12px 16px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#e67e22">${formatCOP(totDia.soloMeds)}</div>
+          <div style="font-size:11px;color:#555;margin-top:3px">ADICIONALES / MEDICAMENTOS</div>
+        </div>
+      </div>
+
+      <!-- Tabla de sesiones -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">
+          Detalle de sesiones atendidas
+        </div>
+        ${pagosHoy.length === 0
+          ? '<div style="font-size:12px;color:#888;padding:12px 0">Sin sesiones registradas hoy</div>'
+          : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="background:#f5f7fa;border-bottom:2px solid #0A76D8">
+                  <th style="padding:7px 10px;text-align:left;font-weight:600">Hora</th>
+                  <th style="padding:7px 10px;text-align:left;font-weight:600">Paciente</th>
+                  <th style="padding:7px 10px;text-align:left;font-weight:600">Tipo de sesión</th>
+                  <th style="padding:7px 10px;text-align:right;font-weight:600">Tarifa</th>
+                  <th style="padding:7px 10px;text-align:right;font-weight:600">Adicionales</th>
+                  <th style="padding:7px 10px;text-align:right;font-weight:600">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pagosHoy.map((p, i) => `
+                  <tr style="border-bottom:1px solid #eee;background:${i%2===0?'#fff':'#fafbfc'}">
+                    <td style="padding:6px 10px">${p.hora}</td>
+                    <td style="padding:6px 10px;font-weight:500">${p.clienteNombre}</td>
+                    <td style="padding:6px 10px;color:#555">${p.tipoSesion}</td>
+                    <td style="padding:6px 10px;text-align:right">${formatCOP(p.tarifaBase)}</td>
+                    <td style="padding:6px 10px;text-align:right;color:${p.totalMedicamentos>0?'#1a7a47':'#aaa'}">
+                      ${p.totalMedicamentos>0 ? formatCOP(p.totalMedicamentos) : '—'}</td>
+                    <td style="padding:6px 10px;text-align:right;font-weight:700">${formatCOP(p.totalCobrado)}</td>
+                  </tr>`).join('')}
+              </tbody>
+              <tfoot>
+                <tr style="background:#f5f7fa;font-weight:700;border-top:2px solid #0A76D8">
+                  <td colspan="3" style="padding:8px 10px">TOTAL</td>
+                  <td style="padding:8px 10px;text-align:right">${formatCOP(totDia.soloSesiones)}</td>
+                  <td style="padding:8px 10px;text-align:right">${formatCOP(totDia.soloMeds)}</td>
+                  <td style="padding:8px 10px;text-align:right;color:#1a7a47;font-size:13px">${formatCOP(totDia.total)}</td>
+                </tr>
+              </tfoot>
+            </table>`}
+      </div>
+
+      <!-- Canceladas -->
+      ${canceladas.length > 0 ? `
+      <div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:#c0392b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">
+          ⚠ Citas canceladas hoy (${canceladas.length})
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#fff5f5;border-bottom:2px solid #e74c3c">
+              <th style="padding:7px 10px;text-align:left;font-weight:600;color:#c0392b">Hora</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600;color:#c0392b">Paciente</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600;color:#c0392b">Ciudad</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600;color:#c0392b">Tipo sesión</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${canceladas.map(c => `
+              <tr style="border-bottom:1px solid #fde8e8">
+                <td style="padding:6px 10px">${c.hora}</td>
+                <td style="padding:6px 10px;font-weight:500">${c.clienteNombre}</td>
+                <td style="padding:6px 10px;color:#555">${c.clienteCiudad||'—'}</td>
+                <td style="padding:6px 10px;color:#555">${c.tipo}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+
+      <!-- Pie de página -->
+      <div style="border-top:1px solid #ddd;padding-top:12px;margin-top:8px;display:flex;justify-content:space-between;font-size:11px;color:#888">
+        <span>Quiromasajes E.F · Santa Rosa de Viterbo, Boyacá</span>
+        <span>Documento generado el ${fechaFmt} a las ${horaImp}</span>
+      </div>
+
+    </div>`;
+
+  window.print();
+
+  // Limpiar después de imprimir
+  window.addEventListener('afterprint', () => {
+    desprendible.innerHTML = '';
+  }, { once: true });
 }
 
 function bindFormCita() {
@@ -832,6 +1190,15 @@ function bindModalesGlobal() {
   });
 }
 
+function bindFinanzas() {
+  document.getElementById('btn-imprimir-desprendible')
+    ?.addEventListener('click', () => {
+      const d = window.__finanzasDia__;
+      if (!d) return;
+      imprimirDesprendible(d.pagosHoy, d.canceladas, d.totDia, d.fechaFmt);
+    });
+}
+
 function bindCronograma() {
   document.getElementById('btn-refresh-crono')
     ?.addEventListener('click', () => cargarCronograma());
@@ -840,8 +1207,22 @@ function bindCronograma() {
 async function cargarCronograma() {
   await renderCronograma({
     onCompletar: async (id) => {
-      await cambiarEstado(id, ESTADOS.COMPLETADA);
-      await renderEstadisticas();
+      const card = document.querySelector(`[data-crono-completar="${id}"]`)?.closest('.crono-card')
+                || document.querySelector(`[data-cita-id="${id}"]`);
+      abrirModalCobro({
+        citaId:        id,
+        clienteId:     card?.dataset?.clienteId     || '',
+        clienteNombre: card?.querySelector('.crono-nombre')?.textContent?.trim() || '',
+        clienteCiudad: card?.dataset?.clienteCiudad || '',
+        hora:          card?.dataset?.hora || card?.querySelector('.crono-hora')?.textContent?.trim() || '',
+        tipoSesion:    card?.dataset?.tipoSesion
+                    || card?.querySelector('.crono-meta')?.textContent?.split('·')[0]?.trim()
+                    || 'Ajuste general',
+        onConfirmar:   async () => {
+          await renderEstadisticas();
+          await cargarCronograma();
+        }
+      });
     },
     onCancelar: async (id) => {
       await cancelarCita(id, 'Cancelada desde cronograma');
