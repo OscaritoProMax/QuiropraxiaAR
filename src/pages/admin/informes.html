@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiromasajes — Informes</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    /* ══════════════════════════════════════════
+       LAYOUT INFORMES
+    ══════════════════════════════════════════ */
+    .inf-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .inf-sidebar {
+      background: #1e1e2d;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow-y: auto;
+    }
+    .inf-sidebar-header {
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .inf-sidebar-logo {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: .03em;
+    }
+    .inf-sidebar-sub {
+      font-size: 11px;
+      color: #6c7a93;
+      margin-top: 2px;
+    }
+    .inf-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .inf-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #0A76D8;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .inf-nombre { font-size: 12px; font-weight: 500; color: #e0e6f0; }
+    .inf-rol    { font-size: 11px; color: #6c7a93; }
+
+    /* Nav de secciones */
+    .inf-nav { padding: 12px 8px; flex: 1; }
+    .inf-nav-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6c7a93;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      padding: 8px 8px 4px;
+    }
+    .inf-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      padding: 9px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #a2a3b7;
+      text-align: left;
+      transition: all .15s;
+      margin-bottom: 2px;
+    }
+    .inf-nav-btn:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .inf-nav-btn.active { background: #0A76D8; color: #fff; }
+    .inf-nav-btn svg { flex-shrink: 0; opacity: .8; }
+
+    .inf-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: #6c7a93;
+      cursor: pointer;
+      font-size: 12px;
+      width: 100%;
+      text-align: left;
+      transition: color .15s;
+    }
+    .inf-back-btn:hover { color: #fff; }
+
+    /* Área principal */
+    .inf-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-main, #f5f7fa);
+    }
+    .inf-topbar {
+      background: #fff;
+      border-bottom: 1px solid var(--border, #ebebeb);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .inf-topbar-title { font-size: 17px; font-weight: 700; color: #161c2d; }
+    .inf-topbar-sub   { font-size: 12px; color: #8492a6; margin-top: 2px; }
+    .inf-body { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* Secciones */
+    .inf-seccion { display: none; }
+
+    /* Filtros */
+    .inf-filtros {
+      background: #fff;
+      border: 1px solid var(--border, #ebebeb);
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .inf-filtros label { font-size: 12px; font-weight: 500; color: #555; }
+    .inf-filtros input[type="date"],
+    .inf-filtros input[type="month"],
+    .inf-filtros select {
+      border: 1px solid #d0dae8;
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 13px;
+      color: #161c2d;
+      background: #fff;
+    }
+
+    /* KPIs */
+    .inf-kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 900px) { .inf-kpi-row { grid-template-columns: repeat(2,1fr); } }
+
+    .inf-kpi {
+      background: #fff;
+      border: 1px solid var(--border, #ebebeb);
+      border-radius: 8px;
+      padding: 14px 16px;
+      border-top: 3px solid transparent;
+    }
+    .inf-kpi-green  { border-top-color: #1a7a47; }
+    .inf-kpi-blue   { border-top-color: #0A76D8; }
+    .inf-kpi-red    { border-top-color: #e74c3c; }
+    .inf-kpi-yellow { border-top-color: #e67e22; }
+    .inf-kpi-purple { border-top-color: #9b59b6; }
+
+    .inf-kpi-valor {
+      font-size: 20px;
+      font-weight: 700;
+      color: #161c2d;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .inf-kpi-label { font-size: 11px; color: #8492a6; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* Cards */
+    .inf-card {
+      background: #fff;
+      border: 1px solid var(--border, #ebebeb);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+    .inf-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #161c2d;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border, #ebebeb);
+    }
+
+    /* Grid */
+    .inf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 800px) { .inf-grid-2 { grid-template-columns: 1fr; } }
+
+    /* Barras */
+    .inf-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .inf-bar-label { width: 140px; flex-shrink: 0; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inf-bar-track { flex: 1; height: 6px; background: #f0f4f8; border-radius: 3px; overflow: hidden; }
+    .inf-bar-fill  { height: 100%; border-radius: 3px; transition: width .4s; min-width: 2px; }
+    .inf-bar-green  { background: #1a7a47; }
+    .inf-bar-blue   { background: #0A76D8; }
+    .inf-bar-purple { background: #9b59b6; }
+    .inf-bar-value { font-size: 12px; color: #555; white-space: nowrap; text-align: right; min-width: 90px; }
+
+    /* Tabla */
+    .inf-tabla {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .inf-tabla thead th {
+      padding: 8px 10px;
+      background: #f8f9fa;
+      text-align: left;
+      font-weight: 600;
+      color: #555;
+      border-bottom: 2px solid var(--border, #ebebeb);
+    }
+    .inf-tabla tbody tr { border-bottom: 1px solid var(--border, #ebebeb); }
+    .inf-tabla tbody tr:nth-child(even) { background: #fafbfc; }
+    .inf-tabla tbody td { padding: 7px 10px; color: #333; }
+    .inf-tabla tfoot td {
+      padding: 8px 10px;
+      font-weight: 700;
+      background: #f5f7fa;
+      border-top: 2px solid var(--border, #ebebeb);
+    }
+
+    .inf-titulo-reporte {
+      font-size: 16px;
+      font-weight: 700;
+      color: #161c2d;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #0A76D8;
+    }
+    .inf-empty { font-size: 12px; color: #aaa; padding: 12px 0; }
+
+    /* ══════════════════════════════════════════
+       IMPRESIÓN
+    ══════════════════════════════════════════ */
+    #print-desprendible { display: none; }
+
+    @media print {
+      body > * { display: none !important; }
+      #print-desprendible { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="inf-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="inf-sidebar">
+    <div class="inf-sidebar-header">
+      <div class="inf-sidebar-logo">Quiromasajes E.F</div>
+      <div class="inf-sidebar-sub">Módulo de informes</div>
+    </div>
+
+    <div class="inf-profile">
+      <div class="inf-avatar" id="inf-avatar">—</div>
+      <div>
+        <div class="inf-nombre" id="inf-nombre">Cargando...</div>
+        <div class="inf-rol"    id="inf-rol">—</div>
+      </div>
+    </div>
+
+    <nav class="inf-nav">
+      <div class="inf-nav-label">Informes</div>
+
+      <button class="inf-nav-btn active" data-sec="sec-diario">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Resumen diario
+      </button>
+
+      <button class="inf-nav-btn" data-sec="sec-finanzas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Finanzas
+      </button>
+
+      <button class="inf-nav-btn" data-sec="sec-citas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Citas
+      </button>
+
+      <button class="inf-nav-btn" data-sec="sec-pacientes">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Pacientes
+      </button>
+
+      <button class="inf-nav-btn" data-sec="sec-cronograma">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Cronograma
+      </button>
+
+      <button class="inf-nav-btn" data-sec="sec-mensual">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Cierre mensual
+      </button>
+    </nav>
+
+    <button class="inf-back-btn" id="btn-back-dash">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver al dashboard
+    </button>
+    <button class="inf-back-btn" id="btn-logout" style="color:#e74c3c;opacity:.7">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Cerrar sesión
+    </button>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL -->
+  <div class="inf-main">
+    <div class="inf-topbar">
+      <div>
+        <div class="inf-topbar-title" id="inf-topbar-title">Resumen diario</div>
+        <div class="inf-topbar-sub"   id="inf-topbar-sub">Snapshot completo del día seleccionado</div>
+      </div>
+    </div>
+
+    <div class="inf-body">
+
+      <!-- 1. RESUMEN DIARIO -->
+      <div id="sec-diario" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Fecha:</label>
+          <input type="date" id="d-fecha"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-diario">Generar informe</button>
+        </div>
+        <div id="d-resultado"></div>
+      </div>
+
+      <!-- 2. FINANZAS -->
+      <div id="sec-finanzas" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Desde:</label>
+          <input type="date" id="f-desde"/>
+          <label>Hasta:</label>
+          <input type="date" id="f-hasta"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-finanzas">Generar informe</button>
+        </div>
+        <div id="f-resultado"></div>
+      </div>
+
+      <!-- 3. CITAS -->
+      <div id="sec-citas" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Desde:</label>
+          <input type="date" id="c-desde"/>
+          <label>Hasta:</label>
+          <input type="date" id="c-hasta"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-citas">Generar informe</button>
+        </div>
+        <div id="c-resultado"></div>
+      </div>
+
+      <!-- 4. PACIENTES -->
+      <div id="sec-pacientes" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Desde:</label>
+          <input type="date" id="p-desde"/>
+          <label>Hasta:</label>
+          <input type="date" id="p-hasta"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-pacientes">Generar informe</button>
+        </div>
+        <div id="p-resultado"></div>
+      </div>
+
+      <!-- 5. CRONOGRAMA -->
+      <div id="sec-cronograma" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Fecha:</label>
+          <input type="date" id="cr-fecha"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-crono">Generar cronograma</button>
+        </div>
+        <div id="cr-resultado"></div>
+      </div>
+
+      <!-- 6. CIERRE MENSUAL -->
+      <div id="sec-mensual" class="inf-seccion">
+        <div class="inf-filtros">
+          <label>Mes:</label>
+          <input type="month" id="m-mes"/>
+          <button class="btn btn-primary btn-sm" id="btn-cargar-mensual">Generar cierre</button>
+        </div>
+        <div id="m-resultado"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Desprendible de impresión (oculto en pantalla) -->
+<div id="print-desprendible"></div>
+
+<script type="module">
+  // Botón volver al dashboard
+  document.getElementById('btn-back-dash')?.addEventListener('click', () => {
+    window.location.href = './dashboard.html';
+  });
+
+  // Títulos por sección
+  const titulos = {
+    'sec-diario':    ['Resumen diario',    'Snapshot completo del día seleccionado'],
+    'sec-finanzas':  ['Finanzas',          'Ingresos, promedios y detalle de cobros por rango de fechas'],
+    'sec-citas':     ['Citas',             'Estado, tipos y distribución geográfica de citas'],
+    'sec-pacientes': ['Pacientes',         'Nuevos registros, top atendidos y distribución por ciudad'],
+    'sec-cronograma':['Cronograma',        'Agenda imprimible del día seleccionado'],
+    'sec-mensual':   ['Cierre mensual',    'Resumen ejecutivo completo del mes'],
+  };
+
+  document.querySelectorAll('.inf-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [titulo, sub] = titulos[btn.dataset.sec] || ['Informes', ''];
+      document.getElementById('inf-topbar-title').textContent = titulo;
+      document.getElementById('inf-topbar-sub').textContent   = sub;
+    });
+  });
+
+  import('./informes.js');
+</script>
+
+</body>
+</html>

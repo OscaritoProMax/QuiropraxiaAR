@@ -14,7 +14,7 @@ import { renderSlots, renderPerfil,
 
 import { registrarPacienteRapido,
          buscarPacientes,
-         CIUDADES }                     from '../../modules/pacientes/pacientesService.js';
+          }                     from '../../modules/pacientes/pacientesService.js';
 
 import { agendarCita, cancelarCita, reprogramarCita,
          cambiarEstado, sugerirHorario,

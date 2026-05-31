@@ -1,6 +1,12 @@
 // src/modules/dashboard/ui.js — Renderizado de vistas, slots, pacientes y estadísticas
 // ══════════════════════════════════════════════════════════
-
+import { 
+  obtenerPagosHoy, 
+  obtenerPagosMes, 
+  calcularTotalesDia, 
+  calcularTotalesMes, 
+  formatCOP 
+} from '../finanzas/pagosService.js';
 import { iniciales, badgeEstado, HOY } from '../../shared/helpers.js';
 import { obtenerCitasPorFecha, ESTADOS, HORARIOS } from '../citas/citasService.js';
 import { obtenerPacientes, obtenerPacientesPorCiudad } from '../pacientes/pacientesService.js';
@@ -24,7 +30,8 @@ export function renderPerfil(usuario) {
 }
 
 // ══════════════════════════════════════════════════════════
-// ESTADÍSTICAS DEL DASHBOARD
+// ══════════════════════════════════════════════════════════
+// ESTADÍSTICAS DEL DASHBOARD (Corregido con consulta de pagos)
 // ══════════════════════════════════════════════════════════
 export async function renderEstadisticas() {
   setEl('dash-fecha',
@@ -33,19 +40,46 @@ export async function renderEstadisticas() {
     })
   );
 
-  const [citasHoy, todosPac] = await Promise.all([
-    obtenerCitasPorFecha(HOY),
-    obtenerPacientes(),
-  ]);
+  // 1. CARGAMOS CITAS Y PACIENTES
+  try {
+    const [citasHoy, todosPac] = await Promise.all([
+      obtenerCitasPorFecha(HOY),
+      obtenerPacientes(),
+    ]);
 
-  setEl('stat-citas',      citasHoy.length);
-  setEl('stat-pacientes',  todosPac.length);
-  setEl('stat-pendientes', citasHoy.filter(c => c.estado === ESTADOS.ACTIVA).length);
-  setEl('stat-canceladas', citasHoy.filter(c => c.estado === ESTADOS.COMPLETADA).length);
+    setEl('stat-citas',      citasHoy.length);
+    setEl('stat-pacientes',  todosPac.length);
+    setEl('stat-pendientes', citasHoy.filter(c => c.estado === ESTADOS.ACTIVA).length);
+    setEl('stat-canceladas', citasHoy.filter(c => c.estado === ESTADOS.COMPLETADA).length);
+  } catch (error) {
+    console.error("Error cargando citas o pacientes:", error);
+  }
 
-  // KPIs nuevos
-  setEl('stat-ingresos-dia', '—');
-  setEl('stat-ingresos-mes', '—');
+  // 2. CARGAMOS FINANZAS Y CALCULAMOS TOTALES
+  try {
+    // Calculamos el mes actual en formato "YYYY-MM" para pasárselo a Firestore
+    const fechaActual = new Date();
+    const mesActual = `${fechaActual.getFullYear()}-${String(fechaActual.getMonth() + 1).padStart(2, '0')}`;
+
+    // Descargamos los recibos de la base de datos (hoy y todo el mes)
+    const [pagosDeHoy, pagosDelMes] = await Promise.all([
+      obtenerPagosHoy(HOY),
+      obtenerPagosMes(mesActual)
+    ]);
+
+    // Procesamos la suma usando tus funciones
+    const sumaHoy = calcularTotalesDia(pagosDeHoy);
+    const sumaMes = calcularTotalesMes(pagosDelMes);
+
+    // Las funciones devuelven un objeto { total, soloSesiones, etc. }, extraemos el 'total'
+    setEl('stat-ingresos-dia', formatCOP(sumaHoy.total));
+    setEl('stat-ingresos-mes', formatCOP(sumaMes.total));
+
+  } catch (error) {
+    console.error("Error específico cargando ingresos:", error);
+    setEl('stat-ingresos-dia', 'Sin datos');
+    setEl('stat-ingresos-mes', 'Sin datos');
+  }
 }
 
 // ══════════════════════════════════════════════════════════

@@ -1,33 +1,31 @@
 import { defineConfig, loadEnv } from 'vite';
-import { resolve } from 'path'; // Aseguramos la importación de resolve
+import { resolve } from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    // 🎛️ CORRECCIÓN 1: Cambiado de './' a '/' para que las rutas de assets funcionen en cualquier nivel de subcarpeta
-    base: '/', 
+    base: '/',
     build: {
       outDir: 'dist',
-      
-      // 🛡️ PROTECCIÓN 1: Desactivar mapas de código (Sourcemaps)
+
+      // 🛡️ Sin mapas de código fuente
       sourcemap: false,
-      
-      // 🛡️ PROTECCIÓN 2: Minificación agresiva nativa
+
+      // 🛡️ Minificación agresiva
       minify: 'esbuild',
-      
+
       rollupOptions: {
         input: {
-          // 🎛️ CORRECCIÓN 2: Uso de resolve para asegurar que Rollup encuentre y compile los HTML
-          main: resolve(__dirname, 'index.html'),
-          dashboard: resolve(__dirname, 'src/pages/admin/dashboard.html'),
-          
-          // De una vez dejamos listos los accesos para los otros roles del Sprint 3:
-         // secretaria: resolve(__dirname, 'src/pages/secretaria/dashboard.html'),
-        //  callcenter: resolve(__dirname, 'src/pages/callcenter/dashboard.html')
+          main:       resolve(__dirname, 'index.html'),
+          dashboard:  resolve(__dirname, 'src/pages/admin/dashboard.html'),
+          usuarios:   resolve(__dirname, 'src/pages/admin/usuarios.html'),
+          informes:   resolve(__dirname, 'src/pages/admin/informes.html'),
+          secretaria: resolve(__dirname, 'src/pages/secretaria/index.html'),
+          callcenter: resolve(__dirname, 'src/pages/callcenter/index.html'),
         },
-        
-        // 🛡️ PROTECCIÓN 3: Ofuscación por fragmentación aleatoria (Code Splitting con Cifrado Hash)
+
+        // 🛡️ Ofuscación por fragmentación con hash
         output: {
           chunkFileNames: 'assets/js/[hash].js',
           entryFileNames: 'assets/js/[hash].js',
@@ -37,7 +35,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       hmr: {
-        overlay: false, 
+        overlay: false,
       },
       proxy: {
         '/api/gemini': {
