@@ -178,20 +178,6 @@
       </button>
     </nav>
 
-    <div class="logout-area">
-      <button class="logout-btn" id="btn-logout">
-        <span class="menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </span>
-        <span class="menu-label">Cerrar sesion</span>
-      </button>
-    </div>
   </aside>
 
   <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
@@ -612,6 +598,23 @@
                 Nuevo usuario
               </button>
             </div>
+          </div>
+
+          <!-- Sesión -->
+          <div class="config-section">
+            <h3 class="config-section-title">Sesion</h3>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+              Cierra tu sesion activa en este dispositivo. Tendra que volver a iniciar sesion para acceder.
+            </p>
+            <button class="btn btn-danger" id="btn-logout">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Cerrar sesion
+            </button>
           </div>
 
         </div>

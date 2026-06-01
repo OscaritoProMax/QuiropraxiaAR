@@ -9,7 +9,8 @@ import { iniciarVigilanteConcurrencia,
 import { crearUsuario }              from '../../core/authService.js';
 import { obtenerUsuarios, cambiarRol,
          toggleActivoUsuario, eliminarUsuario,
-         reautenticarAdmin, forzarCambioPassword } from '../../modules/usuarios/usuariosService.js';
+         reautenticarAdmin, reautenticarAdminGoogle,
+         esUsuarioGoogle, forzarCambioPassword } from '../../modules/usuarios/usuariosService.js';
 import { mostrarAlerta, abrirModal, cerrarModal } from '../../shared/helpers.js';
 import { renderPerfil }              from '../../modules/dashboard/ui.js';
 
@@ -34,11 +35,25 @@ export async function initUsuarios() {
   iniciarVigilanteInactividad();
 
   await cargarTablaUsuarios();
+  bindCerrarModales();
   bindNuevoUsuario();
   bindModalReauth();
   bindModalCambioRol();
   bindModalCambioPass();
   bindLogout();
+}
+
+// ── Listener global para botones data-close ───────────────
+function bindCerrarModales() {
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-close]');
+    if (btn) cerrarModal(btn.dataset.close);
+
+    // Click en el overlay oscuro también cierra
+    if (e.target.classList.contains('modal-overlay')) {
+      e.target.id && cerrarModal(e.target.id);
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -145,21 +160,48 @@ function bindNuevoUsuario() {
 // ══════════════════════════════════════════════════════════
 // MODAL REAUTENTICACIÓN — requerido antes de acciones sensibles
 // ══════════════════════════════════════════════════════════
-let _accionTrasClave = null;
+let _accionTrasClave  = null;
+let _modalOrigen      = null;   // modal que estaba abierto antes del reauth
 
-function pedirClave(accion) {
+async function pedirClave(accion, modalOrigen = null) {
   _accionTrasClave = accion;
-  document.getElementById('reauth-password').value = '';
-  document.getElementById('alert-reauth').innerHTML = '';
+  _modalOrigen     = modalOrigen;
+
+  // Cerrar modal origen para que el reauth quede en primer plano
+  if (modalOrigen) cerrarModal(modalOrigen);
+
+  if (esUsuarioGoogle()) {
+    // Usuario Google: reautenticar directamente con popup, sin modal de contraseña
+    const btn = document.getElementById('btn-google-reauth');
+    document.getElementById('reauth-seccion-pass').style.display    = 'none';
+    document.getElementById('reauth-seccion-google').style.display  = 'block';
+  } else {
+    document.getElementById('reauth-seccion-pass').style.display    = 'block';
+    document.getElementById('reauth-seccion-google').style.display  = 'none';
+  }
+
+  document.getElementById('reauth-password').value        = '';
+  document.getElementById('alert-reauth').innerHTML       = '';
   abrirModal('modal-reauth');
 }
 
+async function _ejecutarAccion() {
+  cerrarModal('modal-reauth');
+  await _accionTrasClave?.();
+  _accionTrasClave = null;
+  _modalOrigen     = null;
+}
+
 function bindModalReauth() {
+  // Confirmar con contraseña
   document.getElementById('btn-confirmar-reauth')
     ?.addEventListener('click', async () => {
       const btn  = document.getElementById('btn-confirmar-reauth');
       const pass = document.getElementById('reauth-password').value;
-
+      if (!pass) {
+        mostrarAlerta('alert-reauth', 'Ingresa tu contraseña.', 'error');
+        return;
+      }
       btn.disabled = true; btn.textContent = 'Verificando...';
       const res = await reautenticarAdmin(pass);
       btn.disabled = false; btn.textContent = 'Confirmar';
@@ -168,10 +210,22 @@ function bindModalReauth() {
         mostrarAlerta('alert-reauth', res.error, 'error');
         return;
       }
+      await _ejecutarAccion();
+    });
 
-      cerrarModal('modal-reauth');
-      await _accionTrasClave?.();
-      _accionTrasClave = null;
+  // Confirmar con Google
+  document.getElementById('btn-google-reauth')
+    ?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-google-reauth');
+      btn.disabled = true; btn.textContent = 'Abriendo Google...';
+      const res = await reautenticarAdminGoogle();
+      btn.disabled = false; btn.textContent = 'Verificar con Google';
+
+      if (!res.ok) {
+        if (res.error) mostrarAlerta('alert-reauth', res.error, 'error');
+        return;
+      }
+      await _ejecutarAccion();
     });
 }
 
@@ -199,7 +253,7 @@ function bindModalCambioRol() {
         } else {
           mostrarAlerta('alert-cambio-rol', res.error, 'error');
         }
-      });
+      }, 'modal-cambio-rol');
     });
 }
 
@@ -230,7 +284,7 @@ function bindModalCambioPass() {
         } else {
           mostrarAlerta('alert-cambio-pass', res.error, 'error');
         }
-      });
+      }, 'modal-cambio-pass');
     });
 }
 

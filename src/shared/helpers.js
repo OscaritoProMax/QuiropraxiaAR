@@ -83,11 +83,22 @@ export function crearBtn(texto, handler, className = 'btn btn-primary') {
   return btn;
 }
 
-/** Fecha de hoy en formato YYYY-MM-DD */
-export const HOY    = new Date().toISOString().split('T')[0];
+/**
+ * Fecha en formato YYYY-MM-DD ajustada a la zona horaria de Colombia (UTC-5).
+ * new Date().toISOString() usa UTC — a las 7 PM Colombia ya es medianoche UTC
+ * y el día avanzaría incorrectamente. toLocaleDateString con 'en-CA' da YYYY-MM-DD.
+ * @param {number} offsetMs — milisegundos adicionales (0 = hoy, 86400000 = mañana)
+ */
+function fechaColombia(offsetMs = 0) {
+  return new Date(Date.now() + offsetMs)
+    .toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
 
-/** Fecha de mañana en formato YYYY-MM-DD */
-export const MANANA = new Date(Date.now() + 86_400_000).toISOString().split('T')[0];
+/** Fecha de hoy en formato YYYY-MM-DD (hora Colombia) */
+export const HOY    = fechaColombia();
+
+/** Fecha de mañana en formato YYYY-MM-DD (hora Colombia) */
+export const MANANA = fechaColombia(86_400_000);
 
 // ══════════════════════════════════════════════════════════
 // SELECTS GEOGRÁFICOS — Departamento → Ciudad + País

@@ -7,12 +7,11 @@ import {
   collection, updateDoc, deleteDoc, serverTimestamp
 } from 'firebase/firestore';
 import {
-  signInWithEmailAndPassword,
-  updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  deleteUser,
-  getAuth
+  reauthenticateWithPopup,
+  GoogleAuthProvider,
+  updatePassword
 } from 'firebase/auth';
 import { db, auth } from '../../core/firebase.js';
 
@@ -55,8 +54,14 @@ export async function toggleActivoUsuario(uid, activoActual) {
   }
 }
 
-// ── Reautenticar al admin antes de operaciones sensibles ──
-// Requiere la contraseña actual del admin que está logueado
+// ── Detectar si el usuario usa Google o email/password ───
+export function esUsuarioGoogle() {
+  const user = auth.currentUser;
+  if (!user) return false;
+  return user.providerData.some(p => p.providerId === 'google.com');
+}
+
+// ── Reautenticar con email y contraseña ───────────────────
 export async function reautenticarAdmin(passwordAdmin) {
   try {
     const usuario = auth.currentUser;
@@ -71,6 +76,23 @@ export async function reautenticarAdmin(passwordAdmin) {
       return { ok: false, error: 'Contraseña incorrecta.' };
     }
     return { ok: false, error: 'No se pudo verificar la identidad.' };
+  }
+}
+
+// ── Reautenticar con Google (para usuarios OAuth) ─────────
+export async function reautenticarAdminGoogle() {
+  try {
+    const usuario = auth.currentUser;
+    if (!usuario) return { ok: false, error: 'No hay sesión activa.' };
+    const provider   = new GoogleAuthProvider();
+    provider.setCustomParameters({ login_hint: usuario.email });
+    await reauthenticateWithPopup(usuario, provider);
+    return { ok: true };
+  } catch (error) {
+    if (error.code === 'auth/popup-closed-by-user') {
+      return { ok: false, error: '' };
+    }
+    return { ok: false, error: 'No se pudo verificar con Google.' };
   }
 }
 
