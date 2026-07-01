@@ -70,16 +70,9 @@ body {
 }
 
 .login-banner-icon img {
-  width: 90px;
-  height: 90px;
+  width: 110px;
+  height: 110px;
   object-fit: contain;
-  border-radius: 50%;
-  
-  background-color: #ffffff; 
-  padding: 10px; 
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); 
-  border: 1px solid rgba(10, 118, 216, 0.1); 
-  
   transition: transform 0.3s ease;
 }
 
@@ -289,14 +282,9 @@ body {
   }
 
   .login-mobile-branding img {
-    width: 75px;
-    height: 75px;
+    width: 90px;
+    height: 90px;
     object-fit: contain;
-    border-radius: 50%;
-    background-color: #ffffff;
-    padding: 8px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(10, 118, 216, 0.08);
     margin-bottom: 8px;
   }
 
@@ -346,4 +334,89 @@ body {
   content: "⚠ ";
   margin-right: 8px;
   font-size: 14px;
+}
+
+/* ── MODO OSCURO ─────────────────────────────────────── */
+[data-theme="dark"] body {
+  background: radial-gradient(circle at center, #0d1a2d 0%, #090d18 50%, #060912 100%);
+}
+
+[data-theme="dark"] .login-wrapper {
+  box-shadow: 0 10px 35px rgba(0,0,0,0.5);
+}
+
+[data-theme="dark"] .login-form-panel {
+  background: linear-gradient(145deg, #161b27, #1a2235);
+}
+
+[data-theme="dark"] .login-header-text {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .login-sub-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-google {
+  background: #1e2535;
+  border-color: #2d3748;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .btn-google:hover {
+  background: #252f44;
+  border-color: #0A76D8;
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .form-label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .input-text {
+  background: #1e2535;
+  border-color: #2d3748;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .input-text::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .input-text:focus {
+  border-color: #0A76D8;
+  box-shadow: 0 0 0 3px rgba(10,118,216,0.2);
+  background: #252f44;
+}
+
+[data-theme="dark"] .divider {
+  color: #4a5568;
+}
+
+[data-theme="dark"] .divider::before,
+[data-theme="dark"] .divider::after {
+  background: #2d3748;
+}
+
+[data-theme="dark"] .login-link {
+  color: #64748b;
+}
+
+[data-theme="dark"] #error-msg {
+  background: rgba(192,57,43,.15);
+  color: #f87171;
+  border-left-color: #e74c3c;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  [data-theme="dark"] .login-wrapper {
+    background: #161b27;
+  }
+  [data-theme="dark"] .login-mobile-branding h2 {
+    color: #e2e8f0;
+  }
+  [data-theme="dark"] .login-mobile-branding p {
+    color: #94a3b8;
+  }
 }

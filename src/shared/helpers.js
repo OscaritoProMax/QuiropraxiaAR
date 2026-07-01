@@ -43,10 +43,12 @@ export function iniciales(nombre) {
  */
 export function badgeEstado(estado) {
   const mapa = {
-    activa:        '<span class="badge badge-warning">Activa</span>',
-    completada:    '<span class="badge badge-success">Completada</span>',
-    cancelada:     '<span class="badge badge-danger">Cancelada</span>',
-    reprogramada:  '<span class="badge badge-primary">Reprogramada</span>',
+    activa:                  '<span class="badge badge-warning">Activa</span>',
+    completada:               '<span class="badge badge-success">Completada</span>',
+    cancelada:                '<span class="badge badge-danger">Cancelada</span>',
+    reprogramada:              '<span class="badge badge-primary">Reprogramada</span>',
+    pendiente_confirmacion:    '<span class="badge badge-info">Pendiente confirmación</span>',
+    pendiente_reprogramar:     '<span class="badge" style="background:#ede9fe;color:#6d28d9">Pendiente reprogramar</span>',
   };
   return mapa[estado] ?? estado;
 }
@@ -173,4 +175,51 @@ export function bindSelectPais(paisId, PAISES, conTodos = false) {
   sel.innerHTML =
     `<option value="">${placeholder}</option>` +
     PAISES.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+// ── Modal de motivo de cancelación ───────────────────────
+export function pedirMotivoCancelacion() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:10000',
+      'background:rgba(0,0,0,.48)',
+      'display:flex', 'align-items:center', 'justify-content:center',
+    ].join(';');
+
+    overlay.innerHTML = `
+      <div style="background:var(--th-card,#fff);border-radius:14px;padding:28px 24px;
+                  max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+        <h3 style="margin:0 0 6px;font-size:16px;color:var(--th-text,#111)">
+          Motivo de cancelación</h3>
+        <p style="margin:0 0 18px;font-size:13px;color:var(--th-text2,#888)">
+          Selecciona el motivo antes de confirmar</p>
+        <div style="display:flex;flex-direction:column;gap:10px" id="_cm-opts">
+          <button data-motivo="No asistió"
+            class="btn btn-gray" style="text-align:left;padding:10px 14px">
+            No asistió</button>
+          <button data-motivo="Canceló"
+            class="btn btn-gray" style="text-align:left;padding:10px 14px">
+            Canceló</button>
+          <button data-motivo="Otro"
+            class="btn btn-gray" style="text-align:left;padding:10px 14px">
+            Otro</button>
+        </div>
+        <button id="_cm-abort" class="btn btn-soft"
+          style="margin-top:16px;width:100%">Volver</button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#_cm-opts').addEventListener('click', e => {
+      const motivo = e.target.closest('[data-motivo]')?.dataset.motivo;
+      if (!motivo) return;
+      overlay.remove();
+      resolve(motivo);
+    });
+    overlay.querySelector('#_cm-abort').addEventListener('click', () => {
+      overlay.remove();
+      resolve(null);
+    });
+  });
 }

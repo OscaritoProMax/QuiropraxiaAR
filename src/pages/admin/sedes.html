@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiromasajes — Sedes y viajes</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <style id="security-guard">body { display:none !important; }</style>
+  <style>
+    /* Esta página es de una sola columna y debe poder hacer scroll natural.
+       Anulamos el alto fijo/overflow:hidden que el dashboard usa para su layout. */
+    html, body { height: auto; min-height: 100%; overflow-y: auto; }
+    .app-container { height: auto !important; overflow: visible !important; display: block; }
+    .main-area    { overflow: visible !important; width: 100%; }
+    .page-content { overflow: visible; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="topbar-title">Sedes y viajes</h1>
+        <p id="topbar-sub">Programa a dónde y cuándo viajas a atender</p>
+      </div>
+      <div class="topbar-right">
+        <a class="btn btn-gray btn-sm" href="./dashboard.html">← Volver al panel</a>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div id="alert-global"></div>
+
+      <div class="config-wrap">
+
+        <!-- Nuevo viaje -->
+        <div class="config-section">
+          <h3 class="config-section-title">Nuevo viaje</h3>
+          <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+            Al programar el viaje, esas fechas se bloquean en la sede local y las
+            citas locales activas en ese rango pasan a "pendiente por reprogramar".
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Destino <span>*</span></label>
+            <div class="origen-selects" style="display:flex;gap:8px;flex-wrap:wrap">
+              <select class="input-text" id="v-dpto" style="flex:1;min-width:160px">
+                <option value="">Departamento...</option>
+              </select>
+              <select class="input-text" id="v-ciudad" style="flex:1;min-width:160px" disabled>
+                <option value="">Ciudad...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label class="form-label">Fecha inicio <span>*</span></label>
+              <input class="input-text" type="date" id="v-fecha-inicio"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha fin <span>*</span></label>
+              <input class="input-text" type="date" id="v-fecha-fin"/>
+            </div>
+          </div>
+
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label class="form-label">Hora inicio de atención</label>
+              <input class="input-text" type="time" id="v-hora-inicio" value="09:00"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hora fin de atención</label>
+              <input class="input-text" type="time" id="v-hora-fin" value="18:00"/>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-guardar-viaje">Programar viaje</button>
+        </div>
+
+        <!-- Próximos viajes (futuros / en curso) — condiciones modificables -->
+        <div class="config-section">
+          <h3 class="config-section-title">Próximos viajes</h3>
+          <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+            Viajes programados a futuro o en curso. Puedes editar la sede, las fechas o el horario.
+          </p>
+          <div id="proximos-lista">
+            <div class="empty-state">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- Historial de viajes (pasados) con filtro de fechas -->
+        <div class="config-section">
+          <h3 class="config-section-title">Historial de viajes</h3>
+          <div class="search-items" style="gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Desde</label>
+              <input class="input-text" type="date" id="hist-desde" style="width:160px"/>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Hasta</label>
+              <input class="input-text" type="date" id="hist-hasta" style="width:160px"/>
+            </div>
+            <button class="btn btn-gray btn-sm" id="btn-hist-filtrar">Filtrar</button>
+            <button class="btn btn-soft btn-sm" id="btn-hist-3meses">Últimos 3 meses</button>
+          </div>
+          <div id="viajes-lista">
+            <div class="empty-state">Cargando...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODAL Editar viaje ══ -->
+<div class="modal-overlay" id="modal-editar-viaje">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-editar-viaje">×</button>
+    <h2 class="modal-title">Editar viaje</h2>
+    <div id="alert-editar-viaje"></div>
+    <input type="hidden" id="e-id"/>
+    <div class="form-group">
+      <label class="form-label">Destino <span>*</span></label>
+      <div class="origen-selects" style="display:flex;gap:8px;flex-wrap:wrap">
+        <select class="input-text" id="e-dpto" style="flex:1;min-width:150px"><option value="">Departamento...</option></select>
+        <select class="input-text" id="e-ciudad" style="flex:1;min-width:150px" disabled><option value="">Ciudad...</option></select>
+      </div>
+    </div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Fecha inicio <span>*</span></label>
+        <input class="input-text" type="date" id="e-fecha-inicio"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha fin <span>*</span></label>
+        <input class="input-text" type="date" id="e-fecha-fin"/>
+      </div>
+    </div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label class="form-label">Hora inicio</label>
+        <input class="input-text" type="time" id="e-hora-inicio"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hora fin</label>
+        <input class="input-text" type="time" id="e-hora-fin"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-editar-viaje">Cancelar</button>
+      <button class="btn btn-primary" id="btn-actualizar-viaje">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODAL Clientes atendidos ══ -->
+<div class="modal-overlay" id="modal-clientes">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-clientes">×</button>
+    <h2 class="modal-title">Clientes atendidos</h2>
+    <p id="modal-clientes-sub" style="font-size:13px;color:var(--th-text2,#888);margin:0 0 12px">—</p>
+    <div id="modal-clientes-lista"></div>
+  </div>
+</div>
+
+
+<script type="module">
+  import { protegerPagina } from '../../core/router.js';
+  import { initSedes }      from './sedesHandler.js';
+  protegerPagina('Administrador').then(async (usuario) => {
+    document.getElementById('security-guard')?.remove();
+    await initSedes(usuario);
+  });
+</script>
+
+</body>
+</html>

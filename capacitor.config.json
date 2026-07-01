@@ -1,0 +1,14 @@
+{
+  "appId": "com.quiromasajes.app",
+  "appName": "quiromasajes",
+  "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "providers": [
+        "google.com"
+      ],
+      "skipNativeAuth": false,
+      "serverClientId": "663937519041-2qi6is2odd4ckvrqit608s08tjuar62b.apps.googleusercontent.com"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // src/modules/pacientes/pacientesService.js — Sprint 1: Módulo 009 - Gestión de clientes
 // ACTUALIZADO: geografía Colombia ahora viene de colombiaService.js (api-colombia.com)
 import {
-  collection, addDoc, updateDoc, deleteDoc, getDocs,
+  collection, addDoc, updateDoc, deleteDoc, getDocs, getDoc,
   doc, query, where, serverTimestamp
 } from "firebase/firestore";
 import { db } from "../../core/firebase";
@@ -53,14 +53,18 @@ export async function registrarPaciente(datos) {
     if (!nombre || !telefono) {
       return { ok: false, error: "Nombre y teléfono son obligatorios." };
     }
-    const duplicadoTel = await buscarPorTelefono(telefono);
+    const telLimpio = telefono.replace(/\D/g, '');
+    if (telLimpio.length !== 10) {
+      return { ok: false, error: "El teléfono debe tener exactamente 10 dígitos (número celular colombiano)." };
+    }
+    const duplicadoTel = await buscarPorTelefono(telLimpio);
     if (duplicadoTel) {
-      return { ok: false, error: `Ya existe un paciente con el teléfono ${telefono}.` };
+      return { ok: false, error: `Ya existe un paciente con el teléfono ${telLimpio}.` };
     }
     const ref = await addDoc(collection(db, "clientes"), {
       nombre:          nombre.trim(),
       documento:       documento?.trim() || "",
-      telefono:        telefono          || "",
+      telefono:        telLimpio,
       email:           email             || "",
       condicion:       condicion         || "",
       ciudad:          ciudad            || "",   // Formato: "Boyacá > Tunja"
@@ -81,17 +85,21 @@ export async function registrarPacienteRapido(nombre, telefono, ciudad, document
     if (!nombre || !telefono) {
       return { ok: false, error: "Nombre y teléfono son obligatorios." };
     }
-    const duplicado = await buscarPorTelefono(telefono);
+    const telLimpio = telefono.replace(/\D/g, '');
+    if (telLimpio.length !== 10) {
+      return { ok: false, error: "El teléfono debe tener exactamente 10 dígitos (número celular colombiano)." };
+    }
+    const duplicado = await buscarPorTelefono(telLimpio);
     if (duplicado) {
       return {
         ok: false,
-        error: `Ya existe un paciente con el teléfono ${telefono}.`,
+        error: `Ya existe un paciente con el teléfono ${telLimpio}.`,
         paciente: duplicado
       };
     }
     const ref = await addDoc(collection(db, "clientes"), {
       nombre:        nombre.trim(),
-      telefono:      telefono.trim(),
+      telefono:      telLimpio,
       documento:     documento.trim(),
       ciudad:        ciudad || "",    // Formato: "Boyacá > Tunja"
       email:         "",
@@ -190,6 +198,15 @@ export async function buscarPorDocumento(documento) {
   } catch (error) {
     return null;
   }
+}
+
+// ── Obtener paciente por ID ─────────────────────────────────
+export async function obtenerPacientePorId(id) {
+  try {
+    const snap = await getDoc(doc(db, 'clientes', id));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch (_) { return null; }
 }
 
 // ── Buscar por nombre, teléfono o documento (client-side) ──

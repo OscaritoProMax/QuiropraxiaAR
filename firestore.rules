@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function rolActual() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+    }
+
+    function esAdmin() {
+      return estaAutenticado() && rolActual() == 'Administrador';
+    }
+
+    function esSecretaria() {
+      return estaAutenticado() && rolActual() == 'Secretaria';
+    }
+
+    function esCallCenter() {
+      return estaAutenticado() && rolActual() == 'Call-center';
+    }
+
+    function esStaff() {
+      return esAdmin() || esSecretaria() || esCallCenter();
+    }
+
+    // ── usuarios ─────────────────────────────────────────────
+    // Cada usuario puede leer su propio documento (login/router lo
+    // necesita). El administrador puede leer y escribir cualquiera
+    // (gestión de usuarios). Cualquier usuario autenticado puede
+    // actualizar su propio doc (p. ej. sesionActivaId al iniciar sesión).
+    match /usuarios/{uid} {
+      allow get:    if estaAutenticado() && (request.auth.uid == uid || esAdmin());
+      allow list:   if esAdmin();
+      allow create: if esAdmin();
+      allow update: if estaAutenticado() && (request.auth.uid == uid || esAdmin());
+      allow delete: if esAdmin();
+    }
+
+    // ── sesiones (historial de inicios de sesión) ─────────────
+    match /sesiones/{sesionId} {
+      allow create: if estaAutenticado() && request.resource.data.usuarioId == request.auth.uid;
+      allow read:   if esAdmin();
+      allow update, delete: if false;
+    }
+
+    // ── clientes (pacientes) ───────────────────────────────────
+    // Administrador, Secretaria y Call-center pueden leer y registrar.
+    // Solo Administrador y Secretaria pueden editar. Solo Administrador elimina.
+    match /clientes/{clienteId} {
+      allow read:   if esStaff();
+      allow create: if esStaff();
+      allow update: if esAdmin() || esSecretaria();
+      allow delete: if esAdmin();
+    }
+
+    // ── citas ────────────────────────────────────────────────
+    // Las tres áreas leen y crean citas. Call-center no puede marcar
+    // una cita como completada ni tocar el flujo de cobro pendiente.
+    match /citas/{citaId} {
+      allow read:   if esStaff();
+      allow create: if esStaff();
+      allow update: if esAdmin() || esSecretaria()
+                    || (esCallCenter()
+                        && request.resource.data.estado != 'completada'
+                        && !request.resource.data.keys().hasAny(['pagoPendiente']));
+      allow delete: if esAdmin();
+    }
+
+    // ── pagos (cobros confirmados) ─────────────────────────────
+    match /pagos/{pagoId} {
+      allow read:   if esAdmin() || esSecretaria();
+      allow create: if esAdmin() || esSecretaria();
+      allow update, delete: if esAdmin();
+    }
+
+    // ── configuracion (tarifa base, metas, horario de jornada) ──
+    match /configuracion/{docId} {
+      allow read:  if esStaff();
+      allow write: if esAdmin();
+    }
+
+    // ── viajes / sedes (viajes del quiropráctico a otras ciudades) ──
+    // Todos los roles los leen (para bloquear/colorear el calendario);
+    // solo el administrador los crea o elimina.
+    match /viajes/{viajeId} {
+      allow read:           if esStaff();
+      allow create, delete: if esAdmin();
+      allow update:         if esAdmin();
+    }
+
+    // Cualquier otra colección no listada: denegada por defecto.
+  }
+}

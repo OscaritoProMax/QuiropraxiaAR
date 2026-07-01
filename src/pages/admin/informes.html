@@ -68,6 +68,7 @@
 
     /* ── Mobile nav (bottom bar) ── */
     .mobile-nav { display: none; }
+    .btn-back-mobile { display: none; }
 
     /* ── Filtros ── */
     .filtros    { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -162,7 +163,14 @@
       .mob-btn.active { color: var(--ink); }
       .mob-btn svg { flex-shrink: 0; }
       .body       { padding: 14px; padding-bottom: 80px; }
-      .topbar     { padding: 11px 14px; }
+      .topbar     { padding: 11px 14px; display: flex; align-items: center; gap: 10px; }
+      .btn-back-mobile {
+        display: flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; flex-shrink: 0;
+        background: var(--bg); border: 1px solid var(--line); border-radius: 50%;
+        color: var(--ink2); cursor: pointer; padding: 0;
+      }
+      .btn-back-mobile:active { background: var(--line2); }
       .t-title    { font-size: 14px; }
       .kpi-grid   { grid-template-columns: 1fr 1fr; }
       .g2         { grid-template-columns: 1fr; }
@@ -242,8 +250,13 @@
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
-      <div class="t-title" id="t-title">Resumen diario</div>
-      <div class="t-sub"   id="t-sub">Snapshot del día seleccionado</div>
+      <button class="btn-back-mobile" id="btn-back-mobile" title="Volver al dashboard">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div>
+        <div class="t-title" id="t-title">Resumen diario</div>
+        <div class="t-sub"   id="t-sub">Snapshot del día seleccionado</div>
+      </div>
     </div>
 
     <div class="body">
@@ -364,11 +377,48 @@ let usr = null;
   document.getElementById('s-rol').textContent    = usr.rol||'—';
 
   document.getElementById('btn-dash')?.addEventListener('click',()=> window.location.href='./dashboard.html');
+  document.getElementById('btn-back-mobile')?.addEventListener('click',()=> window.location.href='./dashboard.html');
   document.getElementById('btn-logout')?.addEventListener('click', async ()=>{ await logout(); window.location.href='/index.html'; });
 
   bindNav();
-  activar('sec-diario');
+
+  // Deep-link desde otras páginas (p. ej. Sedes):
+  // informes.html?sec=sec-finanzas&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+  const params = new URLSearchParams(location.search);
+  const secParam = params.get('sec');
+  if (secParam && document.getElementById(secParam)) {
+    activar(secParam);
+    aplicarParamsInforme(secParam, params);
+  } else {
+    activar('sec-diario');
+  }
 })();
+
+// Aplica fechas recibidas por URL a la sección abierta y regenera el informe.
+function aplicarParamsInforme(sec, params) {
+  const desde = params.get('desde'), hasta = params.get('hasta');
+  const fecha = params.get('fecha'), mes   = params.get('mes');
+  const map = {
+    'sec-diario':    { inputs:[['d-fecha', fecha]],                  btn:'btn-d'  },
+    'sec-finanzas':  { inputs:[['f-desde', desde],['f-hasta', hasta]], btn:'btn-f'  },
+    'sec-citas':     { inputs:[['c-desde', desde],['c-hasta', hasta]], btn:'btn-c'  },
+    'sec-pacientes': { inputs:[['p-desde', desde],['p-hasta', hasta]], btn:'btn-p'  },
+    'sec-cronograma':{ inputs:[['cr-fecha', fecha]],                 btn:'btn-cr' },
+    'sec-mensual':   { inputs:[['m-mes', mes]],                      btn:'btn-m'  },
+  }[sec];
+  if (!map) return;
+  // Esperar a que el loader inicial setee sus valores por defecto, luego
+  // sobreescribir con los de la URL y regenerar.
+  setTimeout(() => {
+    let cambio = false;
+    map.inputs.forEach(([id, val]) => {
+      if (!val) return;
+      const el = document.getElementById(id);
+      if (el) { el.value = val; cambio = true; }
+    });
+    if (cambio) document.getElementById(map.btn)?.click();
+  }, 80);
+}
 
 // ── Navegación ────────────────────────────────────────────
 const TITULOS = {

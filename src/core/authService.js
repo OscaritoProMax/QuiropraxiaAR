@@ -6,12 +6,15 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  signInWithCredential
 } from "firebase/auth";
 import {
   doc, setDoc, getDoc, serverTimestamp, onSnapshot
 } from "firebase/firestore";
-import { auth, db } from "./firebase";   // ← mismo directorio core/
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
+import { auth, db, secondaryAuth } from "./firebase";   // ← mismo directorio core/
 
 let desuscribirConcurrencia = null;
 
@@ -35,6 +38,14 @@ export async function login(email, password) {
   try {
     const credencial = await signInWithEmailAndPassword(auth, email, password);
     const user       = credencial.user;
+
+    // Forzamos que el token de Auth quede propagado antes de leer Firestore.
+    // Justo después de signIn, el cliente de Firestore puede no tener aún
+    // el token adjunto a su canal interno — el primer getDoc() de abajo
+    // fallaba en silencio (permission-denied, tragado por el catch de
+    // getUsuarioPorId) y el login se quedaba "atascado" la primera vez,
+    // funcionando recién al reintentar.
+    await user.getIdToken();
 
     // ── CONTROL DE CONCURRENCIA OPTIMIZADO ──
     const tokenSesionUnico = generarTokenUnico();
@@ -63,12 +74,38 @@ export async function login(email, password) {
   }
 }
 
+// ── Inicio de sesión con Google según plataforma ──────────
+// En Android (Capacitor nativo) usamos el plugin nativo: el login de
+// Google ocurre DENTRO de la app (no abre el navegador) y luego firmamos
+// en el SDK web de Firebase con la credencial obtenida, para que
+// auth.currentUser, Firestore y el resto del flujo funcionen igual.
+// En web/PC seguimos usando el popup estándar.
+async function iniciarSesionGoogle() {
+  if (Capacitor.isNativePlatform()) {
+    const result   = await FirebaseAuthentication.signInWithGoogle();
+    const idToken   = result.credential?.idToken;
+    const accessTok = result.credential?.accessToken;
+    if (!idToken && !accessTok) {
+      throw new Error("No se recibió la credencial de Google.");
+    }
+    const credential = GoogleAuthProvider.credential(idToken, accessTok);
+    const credencial = await signInWithCredential(auth, credential);
+    return credencial.user;
+  }
+  const provider   = new GoogleAuthProvider();
+  const credencial = await signInWithPopup(auth, provider);
+  return credencial.user;
+}
+
 // ── Login con Google ──────────────────
 export async function loginConGoogle() {
   try {
-    const provider   = new GoogleAuthProvider();
-    const credencial = await signInWithPopup(auth, provider);
-    const user       = credencial.user;
+    const user = await iniciarSesionGoogle();
+
+    // Mismo fix que en login(): asegurar que el token esté propagado
+    // antes del primer getDoc(), para que no falle por una carrera con
+    // el canal interno de Firestore.
+    await user.getIdToken();
 
     const datosUsuario = await getUsuarioPorId(user.uid);
 
@@ -106,12 +143,20 @@ export async function loginConGoogle() {
 
   } catch (error) {
     console.error("🔥 Error real de Firebase Auth con Google:", error);
-    if (error.code === "auth/popup-closed-by-user") {
+    // Cancelación por el usuario — no mostramos error (web y nativo).
+    const msg = (error?.message || "").toLowerCase();
+    const cancelado =
+      error.code === "auth/popup-closed-by-user" ||
+      error.code === "auth/cancelled-popup-request" ||
+      msg.includes("canceled") || msg.includes("cancelled") ||
+      msg.includes("12501");   // Android: SIGN_IN_CANCELLED
+    if (cancelado) {
       return { ok: false, error: "" };
     }
     return { ok: false, error: `Error de autenticación (${error.code || 'Bloqueo COOP'}). Intenta de nuevo.` };
   }
 }
+
 
 // ── FUNCIÓN VIGILANTE DE CONCURRENCIA (Blindada contra fugas de memoria) ─────────────────
 export function iniciarVigilanteConcurrencia(usuarioObjeto) {
@@ -155,6 +200,13 @@ export function iniciarVigilanteConcurrencia(usuarioObjeto) {
   setTimeout(_arrancarVigilante, 1500);
 }
 
+// En Android también hay que cerrar la sesión nativa del plugin de Google,
+// si no la próxima vez podría reusar la cuenta sin volver a preguntar.
+async function cerrarSesionNativa() {
+  if (!Capacitor.isNativePlatform()) return;
+  try { await FirebaseAuthentication.signOut(); } catch (_) {}
+}
+
 // ── Cierre de sesión manual o por inactividad ─────────────────
 export async function cerrarSesion() {
   try {
@@ -163,6 +215,7 @@ export async function cerrarSesion() {
       desuscribirConcurrencia = null;
     }
     localStorage.removeItem('id_sesion_local');
+    await cerrarSesionNativa();
     await signOut(auth);
     // FIX: replace en lugar de href para evitar entrada en historial
     // y compatibilidad con Vite base path
@@ -180,6 +233,7 @@ export async function logout() {
       desuscribirConcurrencia = null;
     }
     localStorage.removeItem('id_sesion_local');
+    await cerrarSesionNativa();
     await signOut(auth);
     return { ok: true };
   } catch {
@@ -188,13 +242,20 @@ export async function logout() {
 }
 
 // ── Crear usuario (solo Administrador) ───────────────────
+// Usa `secondaryAuth` (instancia de Auth separada) para crear el usuario
+// en Firebase Auth. createUserWithEmailAndPassword() inicia sesión
+// automáticamente como el usuario nuevo en la instancia que se le pasa;
+// si usáramos `auth` (la del admin logueado), el administrador perdería
+// su sesión a mitad de la operación y el setDoc() de abajo fallaría por
+// las reglas de Firestore (esAdmin() ya no vería al admin autenticado).
 export async function crearUsuario(nombre, email, password, rol) {
   try {
     if (!Object.values(ROLES).includes(rol)) {
       return { ok: false, error: "Rol inválido." };
     }
-    const credencial = await createUserWithEmailAndPassword(auth, email, password);
+    const credencial = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const uid = credencial.user.uid;
+    await signOut(secondaryAuth);
 
     await setDoc(doc(db, "usuarios", uid), {
       uid, nombre, email, rol,
@@ -219,7 +280,8 @@ export async function getUsuarioPorId(uid) {
     const snap = await getDoc(doc(db, "usuarios", uid));
     if (snap.exists()) return { id: snap.id, ...snap.data() };
     return null;
-  } catch {
+  } catch (error) {
+    console.error("Error obteniendo usuario:", error);
     return null;
   }
 }

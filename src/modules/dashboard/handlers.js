@@ -5,9 +5,11 @@
 
 import { auth, db }           from '../../core/firebase.js';
 import { protegerPagina }     from '../../core/router.js';
+import { initPushNotifications } from '../../core/pushNotifications.js';
 import { renderCronograma, autoCompletarCitasViejas } from './cronograma.js';
 import { getDocs, collection } from 'firebase/firestore';
 import { renderDashboardPaneles, renderGestorPacientes } from './ui.js';
+import { renderSemana }       from './semana.js';
 
 import { logout, crearUsuario, getUsuarioPorId,
          ROLES, tienePermiso }                      from '../../core/authService.js';
@@ -17,6 +19,7 @@ import { registrarPaciente, registrarPacienteRapido,
          obtenerPacientes, obtenerPacientesPorCiudad,
          buscarPacientes, filtrarPorCiudad,
          actualizarPaciente, eliminarPaciente,
+         obtenerPacientePorId,
          PAISES,
          ubicacionString, parsearUbicacion }         from '../pacientes/pacientesService.js';
 
@@ -29,13 +32,19 @@ import {
 
 import { registrarPago, obtenerPagosHoy, obtenerPagosMes,
          calcularTotalesDia, calcularTotalesMes,
-         formatCOP, TARIFA_BASE }                                   from '../finanzas/pagosService.js';
+         formatCOP, TARIFA_BASE, obtenerConfiguracion,
+         obtenerTarifaBaseActual }                                  from '../finanzas/pagosService.js';
 import { agendarCita, cancelarCita, reprogramarCita,
-         cambiarEstado, sugerirHorario, ESTADOS, HORARIOS }         from '../citas/citasService.js';
+         cambiarEstado, sugerirHorario, ESTADOS, HORARIOS, cargarHorarios,
+         generarHorarios, viajeEnFecha,
+         obtenerCitasPendientesConfirmacion, confirmarPagoPendiente,
+         rechazarPagoPendiente }                                    from '../citas/citasService.js';
 
 import { mostrarAlerta, abrirModal, cerrarModal,
          crearBtn, HOY, MANANA,
-         bindSelectPais }                            from '../../shared/helpers.js';
+         bindSelectPais, pedirMotivoCancelacion }    from '../../shared/helpers.js';
+import { initTimePicker, updateTimePicker,
+         setTimePicker, hora12Display }              from '../../shared/timePicker.js';
 import { renderPerfil, renderEstadisticas, renderCitasHoy,
          renderSlots, renderPacientes, renderPills,
          renderResultadosBusqueda, renderFormEditar,
@@ -54,11 +63,13 @@ let ciudadActivaPills = '';
 // Se asignan cuando los selects son inicializados con la API.
 let _getUbicacionPaciente  = () => '';   // modal nuevo paciente
 let _getUbicacionRapida    = () => '';   // registro rápido en cita
+let _getUbicacionCita      = () => '';   // confirmación ciudad paciente existente
 
 // ══════════════════════════════════════════════════════════
 // INIT — punto de entrada único
 // ══════════════════════════════════════════════════════════
-export function initDashboard() {
+export async function initDashboard() {
+  await cargarHorarios();     // genera los slots según la jornada configurada
   poblarSelectsCiudades();   // ahora async — carga API en paralelo
   poblarSelectsHorarios();
   bindModalCobro();
@@ -74,7 +85,24 @@ export function initDashboard() {
   bindFormReprogramar();
   bindFormUsuario();
   bindCronograma();
-  initAuth();
+  await initAuth(); // espera los datos para que el splash cubra la carga
+  aplicarDeepLink(); // abre una vista concreta si viene en la URL (?view=citas&fecha=...)
+}
+
+// Permite enlazar a una vista concreta desde otra página (p. ej. desde
+// Sedes: ./dashboard.html?view=citas&fecha=YYYY-MM-DD).
+function aplicarDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const view   = params.get('view');
+  const fecha  = params.get('fecha');
+  if (!view || view === 'dashboard') return;
+
+  if (view === 'citas') {
+    const filtro = document.getElementById('filter-fecha');
+    if (filtro && fecha) filtro.value = fecha;
+  }
+  const btn = document.querySelector(`.menu-btn[data-view="${view}"]`);
+  if (btn) mostrarVista(view, btn);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -136,10 +164,8 @@ async function poblarSelectsCiudades() {
 // HORARIOS — sin cambios
 // ══════════════════════════════════════════════════════════
 function poblarSelectsHorarios() {
-  ['c-hora', 'r-hora'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = HORARIOS.map(h => `<option>${h}</option>`).join('');
-  });
+  initTimePicker('c-hora', HORARIOS);
+  initTimePicker('r-hora', HORARIOS);
 }
 
 /** Filtra HORARIOS según la fecha: si es hoy, elimina horas ya pasadas */
@@ -150,19 +176,9 @@ function horasDisponibles(fecha) {
   return HORARIOS.filter(h => h > hhmm);
 }
 
-/** Actualiza un select de horas según la fecha seleccionada */
+/** Actualiza el time picker según la fecha seleccionada */
 function actualizarSelectHoras(selectId, fecha, valorActual = null) {
-  const el = document.getElementById(selectId);
-  if (!el) return;
-  const disponibles = horasDisponibles(fecha);
-  if (disponibles.length === 0) {
-    el.innerHTML = '<option value="">No hay horarios disponibles hoy</option>';
-    el.disabled = true;
-  } else {
-    el.disabled = false;
-    el.innerHTML = disponibles.map(h => `<option>${h}</option>`).join('');
-    if (valorActual && disponibles.includes(valorActual)) el.value = valorActual;
-  }
+  updateTimePicker(selectId, horasDisponibles(fecha), valorActual);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -171,6 +187,7 @@ function actualizarSelectHoras(selectId, fecha, valorActual = null) {
 async function initAuth() {
   usuarioActual = await protegerPagina('Administrador');
   renderPerfil(usuarioActual);
+  initPushNotifications(usuarioActual);
 
   if (!tienePermiso(usuarioActual, [ROLES.ADMINISTRADOR])) {
     document.getElementById('menu-usuarios').style.display = 'none';
@@ -181,9 +198,11 @@ async function initAuth() {
     renderEstadisticas(),
     renderDashboardPaneles(
       completarCitaHoy,
-      abrirModalCitaDesdeVoz
+      abrirModalCitaDesdeVoz,
+      true
     ),
     cargarPacientesCache(),
+    obtenerConfiguracion(),
   ]);
 }
 
@@ -201,7 +220,7 @@ async function completarCitaHoy(citaId) {
                 || 'Ajuste general',
     onConfirmar: async () => {
       await Promise.all([
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
         renderEstadisticas(),
       ]);
     }
@@ -237,6 +256,7 @@ async function mostrarVista(vista, btn) {
     pacientes:   ['Gestión de pacientes',  'Código 009 — Registro, búsqueda y filtro por ciudad'],
     citas:       ['Gestión de citas',      'Código 002 — Agenda de horarios'],
     cronograma:  ['Cronograma del día',    'Citas de hoy por estado y hora'],
+    semana:      ['Semana',                'Ocupación del mes y la semana'],
     usuarios:    ['Usuarios del sistema',  'Código 001 — Control de acceso'],
     configuracion: ['Configuración',       'Ajustes del sistema'],
     finanzas:      ['Finanzas',              'Ingresos, cobros y control del día'],
@@ -251,7 +271,7 @@ async function mostrarVista(vista, btn) {
   if (vista === 'dashboard') {
     await Promise.all([
       renderEstadisticas(),
-      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
     ]);
   }
 
@@ -285,6 +305,10 @@ async function mostrarVista(vista, btn) {
     await cargarCronograma();
   }
 
+  if (vista === 'semana') {
+    await renderSemana(irACitasDesdeSemana);
+  }
+
   if (vista === 'finanzas') {
     await renderVistaFinanzas();
   }
@@ -293,6 +317,14 @@ async function mostrarVista(vista, btn) {
     actions.appendChild(crearBtn('+ Nuevo usuario', () => abrirModal('modal-usuario')));
     await cargarUsuarios();
   }
+}
+
+// Al elegir un día en la vista Semana, se abre el módulo de Citas con esa fecha.
+function irACitasDesdeSemana(fechaStr) {
+  const filtroFecha = document.getElementById('filter-fecha');
+  if (filtroFecha) filtroFecha.value = fechaStr;
+  const btnCitas = document.querySelector('.menu-btn[data-view="citas"]');
+  mostrarVista('citas', btnCitas);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -317,7 +349,18 @@ function bindFiltrosFecha() {
 }
 
 async function cargarSlotsFecha(fecha) {
+  // Si la fecha cae en un viaje, el admin agenda en la sede destino con el
+  // horario del viaje (banner morado). Los demás roles la ven bloqueada.
+  const viaje = await viajeEnFecha(fecha);
+  const opcionesViaje = viaje
+    ? {
+        horarios: generarHorarios(viaje.horaInicio, viaje.horaFin),
+        banner:   `📍 Atendiendo en ${viaje.ciudadFull} (viaje · ${hora12Display(viaje.horaInicio)} a ${hora12Display(viaje.horaFin)}). Las citas que agendes aquí quedan en esta sede.`,
+      }
+    : {};
+
   await renderSlots(fecha, {
+    ...opcionesViaje,
     onAgendar:   (hora, fecha) => abrirModalCita(hora, fecha),
      onCompletar: async (id, f) => {
        const slot = document.querySelector(`[data-completar="${id}"]`)?.closest('.slot-item')
@@ -342,11 +385,118 @@ async function cargarSlotsFecha(fecha) {
       abrirModal('modal-reprogramar');
     },
     onCancelar: async (id, f) => {
-      if (!confirm('¿Confirmas la cancelación de esta cita?')) return;
-      await cancelarCita(id, 'Cancelada por administrador');
+      const motivo = await pedirMotivoCancelacion();
+      if (!motivo) return;
+      await cancelarCita(id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
       mostrarAlerta('alert-cita', 'Cita cancelada.', 'success');
       await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
     },
+    onVerPaciente: (id) => abrirPanelPacienteCita(id),
+  });
+}
+
+async function abrirPanelPacienteCita(pacienteId) {
+  const panel = document.getElementById('panel-paciente-cita');
+  if (!panel) return;
+
+  panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary)">
+    <div style="font-size:13px;color:var(--text-muted)">Cargando datos del paciente...</div>
+  </div>`;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const pac = await obtenerPacientePorId(pacienteId);
+  if (!pac) {
+    panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px">
+      <div style="font-size:13px;color:var(--danger)">No se encontró el paciente.</div>
+    </div>`;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div style="margin-top:16px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary);overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--th-divider)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${pac.nombre.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}</div>
+          <div>
+            <div style="font-weight:700;font-size:14px;color:var(--th-text)">${pac.nombre}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${pac.telefono || '—'} · ${pac.ciudad || 'Sin ciudad'}</div>
+          </div>
+        </div>
+        <button id="ppc-cerrar" style="background:none;border:1px solid var(--th-card-border);border-radius:7px;width:28px;height:28px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:16px">×</button>
+      </div>
+      <div style="padding:16px 18px">
+        <div id="alert-ppc" style="margin-bottom:10px"></div>
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label class="form-label">Nombre completo</label>
+            <input class="input-text" id="ppc-nombre" value="${pac.nombre || ''}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono <span style="font-weight:400;color:var(--text-muted);font-size:11px">(no editable)</span></label>
+            <input class="input-text" value="${pac.telefono || ''}" disabled style="opacity:.6;cursor:not-allowed"/>
+          </div>
+        </div>
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label class="form-label">Documento</label>
+            <input class="input-text" id="ppc-doc" value="${pac.documento || ''}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Correo</label>
+            <input class="input-text" id="ppc-email" type="email" value="${pac.email || ''}"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ciudad de origen</label>
+          <div class="origen-selects">
+            <select class="input-text" id="ppc-dpto"><option value="">Cargando...</option></select>
+            <select class="input-text" id="ppc-ciudad" disabled><option value="">Ciudad...</option></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Condición / motivo de consulta</label>
+          <input class="input-text" id="ppc-condicion" value="${pac.condicion || ''}" placeholder="Ej: Dolor lumbar crónico"/>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+          <button class="btn btn-gray btn-sm" id="ppc-cancelar">Cancelar</button>
+          <button class="btn btn-primary btn-sm" id="ppc-guardar" data-id="${pac.id}">Guardar cambios</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Cargar selects de ciudad con la API
+  let _getPpcUbicacion = () => pac.ciudad || '';
+  const dptoEl   = document.getElementById('ppc-dpto');
+  const ciudadEl = document.getElementById('ppc-ciudad');
+  _getPpcUbicacion = await inicializarSelectsUbicacion(dptoEl, ciudadEl);
+  if (pac.ciudad) await restaurarUbicacion(dptoEl, ciudadEl, pac.ciudad);
+
+  document.getElementById('ppc-cerrar')?.addEventListener('click', () => { panel.innerHTML = ''; });
+  document.getElementById('ppc-cancelar')?.addEventListener('click', () => { panel.innerHTML = ''; });
+
+  document.getElementById('ppc-guardar')?.addEventListener('click', async () => {
+    const btn = document.getElementById('ppc-guardar');
+    btn.textContent = 'Guardando...'; btn.disabled = true;
+    const datos = {
+      nombre:    document.getElementById('ppc-nombre')?.value.trim(),
+      documento: document.getElementById('ppc-doc')?.value.trim(),
+      email:     document.getElementById('ppc-email')?.value.trim(),
+      condicion: document.getElementById('ppc-condicion')?.value.trim(),
+      ciudad:    _getPpcUbicacion(),
+    };
+    if (!datos.nombre) {
+      mostrarAlerta('alert-ppc', 'El nombre es obligatorio.', 'error');
+      btn.textContent = 'Guardar cambios'; btn.disabled = false;
+      return;
+    }
+    const res = await actualizarPaciente(pac.id, datos);
+    if (res.ok) {
+      mostrarAlerta('alert-ppc', 'Paciente actualizado correctamente.', 'success');
+      btn.textContent = 'Guardar cambios'; btn.disabled = false;
+    } else {
+      mostrarAlerta('alert-ppc', res.error || 'Error al guardar.', 'error');
+      btn.textContent = 'Guardar cambios'; btn.disabled = false;
+    }
   });
 }
 
@@ -575,8 +725,14 @@ function bindFormPaciente() {
 function abrirModalCita(horaPreseleccionada = null, fechaPreseleccionada = null) {
   document.getElementById('c-buscar-pac').value  = '';
   document.getElementById('c-paciente-id').value = '';
+  document.getElementById('c-paciente-ciudad').value = '';
   document.getElementById('c-pac-sugerencias').style.display = 'none';
   document.getElementById('quick-register').classList.remove('visible');
+  document.getElementById('cita-ciudad-wrap').style.display = 'none';
+  document.getElementById('cita-dpto').value = '';
+  document.getElementById('cita-ciudad-sel').value = '';
+  document.getElementById('cita-ciudad-sel').disabled = true;
+  _getUbicacionCita = () => '';
 
   const fechaFiltro = document.getElementById('filter-fecha')?.value || HOY;
   const fechaFinal  = fechaPreseleccionada || fechaFiltro;
@@ -605,7 +761,7 @@ function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora
   document.getElementById('cobro-tipo-sesion').value    = tipoSesion;
   document.getElementById('cobro-cliente-nombre').textContent = clienteNombre || 'Paciente';
   document.getElementById('cobro-tipo-display').value   = tipoSesion || 'Ajuste general';
-  document.getElementById('cobro-tarifa').value         = TARIFA_BASE;
+  document.getElementById('cobro-tarifa').value         = obtenerTarifaBaseActual();
   document.getElementById('cobro-meds-lista').innerHTML = '';
   document.getElementById('alert-cobro').innerHTML      = '';
   actualizarResumenCobro();
@@ -658,7 +814,12 @@ function bindModalCobro() {
         if (nombre) medicamentos.push({ nombre, precio });
       });
 
-      await cambiarEstado(_cobroPendiente.citaId, ESTADOS.COMPLETADA);
+      const totalCobrado = tarifa + medicamentos.reduce((s, m) => s + (m.precio || 0), 0);
+      await cambiarEstado(
+        _cobroPendiente.citaId, ESTADOS.COMPLETADA,
+        usuarioActual?.uid, usuarioActual?.nombre,
+        `Pago confirmado: ${formatCOP(totalCobrado)}`
+      );
 
       const resPago = await registrarPago({
         citaId:        _cobroPendiente.citaId,
@@ -727,7 +888,7 @@ async function renderVistaFinanzas() {
       tablaDia.innerHTML = '<div class="empty-state">No hay cobros registrados hoy</div>';
     } else {
       tablaDia.innerHTML = `
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:13px">
           <thead>
             <tr style="background:var(--bg-secondary)">
               <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-weight:600">Hora</th>
@@ -769,7 +930,7 @@ async function renderVistaFinanzas() {
       tablaCanceladas.innerHTML = '<div class="empty-state" style="color:var(--color-green)">✓ Sin cancelaciones hoy</div>';
     } else {
       tablaCanceladas.innerHTML = `
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table style="width:100%;min-width:380px;border-collapse:collapse;font-size:13px">
           <thead>
             <tr style="background:#fff5f5">
               <th style="padding:8px 12px;text-align:left;color:#c0392b;font-weight:600">Hora</th>
@@ -791,8 +952,85 @@ async function renderVistaFinanzas() {
     }
   }
 
+  // ── Pendientes por confirmar (cobros enviados por secretaria) ──
+  await renderTablaPendientesConfirmacion();
+
   // Guardar datos para el botón imprimir (se actualiza cada vez que se carga la vista)
   window.__finanzasDia__ = { pagosHoy, canceladas, totDia, fechaFmt };
+}
+
+async function renderTablaPendientesConfirmacion() {
+  const tabla = document.getElementById('fin-tabla-pendientes');
+  if (!tabla) return;
+
+  const pendientes = await obtenerCitasPendientesConfirmacion();
+
+  if (!pendientes.length) {
+    tabla.innerHTML = '<div class="empty-state" style="color:var(--color-green)">✓ No hay cobros pendientes de confirmación</div>';
+    return;
+  }
+
+  tabla.innerHTML = `
+    <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#fffbf0">
+          <th style="padding:8px 12px;text-align:left;color:#946a00;font-weight:600">Fecha/Hora</th>
+          <th style="padding:8px 12px;text-align:left;color:#946a00;font-weight:600">Paciente</th>
+          <th style="padding:8px 12px;text-align:left;color:#946a00;font-weight:600">Enviado por</th>
+          <th style="padding:8px 12px;text-align:right;color:#946a00;font-weight:600">Total</th>
+          <th style="padding:8px 12px;text-align:right;color:#946a00;font-weight:600">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${pendientes.map(c => `
+          <tr style="border-bottom:1px solid #fff0d6">
+            <td style="padding:8px 12px;color:var(--text-muted)">${c.fecha} ${c.hora}</td>
+            <td style="padding:8px 12px;font-weight:500">${c.clienteNombre}</td>
+            <td style="padding:8px 12px;color:var(--text-muted)">${c.pagoPendiente?.enviadoPorNombre || '—'}</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:700">${formatCOP(c.pagoPendiente?.totalCobrado || 0)}</td>
+            <td style="padding:8px 12px;text-align:right">
+              <button class="btn btn-soft btn-sm"   data-aprobar-pago="${c.id}">✓ Aprobar</button>
+              <button class="btn btn-danger btn-sm" data-rechazar-pago="${c.id}">✕ Rechazar</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  tabla.querySelectorAll('[data-aprobar-pago]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const citaId = btn.dataset.aprobarPago;
+      btn.disabled = true; btn.textContent = 'Confirmando...';
+
+      const res = await confirmarPagoPendiente(citaId, usuarioActual?.uid, usuarioActual?.nombre);
+      if (!res.ok) {
+        mostrarAlerta('alert-fin-pendientes', res.error, 'error');
+        btn.disabled = false; btn.textContent = '✓ Aprobar';
+        return;
+      }
+
+      await registrarPago({ ...res.pagoPendiente, usuarioId: usuarioActual?.uid });
+      mostrarAlerta('alert-fin-pendientes', 'Pago confirmado y registrado.', 'success');
+      await Promise.all([renderVistaFinanzas(), renderEstadisticas()]);
+    });
+  });
+
+  tabla.querySelectorAll('[data-rechazar-pago]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const motivo = await pedirMotivoCancelacion();
+      if (!motivo) return;
+      btn.disabled = true; btn.textContent = 'Rechazando...';
+
+      const res = await rechazarPagoPendiente(btn.dataset.rechazarPago, motivo, usuarioActual?.uid, usuarioActual?.nombre);
+      if (!res.ok) {
+        mostrarAlerta('alert-fin-pendientes', res.error, 'error');
+        btn.disabled = false; btn.textContent = '✕ Rechazar';
+        return;
+      }
+
+      mostrarAlerta('alert-fin-pendientes', 'Cobro rechazado. La cita vuelve a estar activa.', 'success');
+      await renderVistaFinanzas();
+    });
+  });
 }
 
 // ── Desprendible empresarial para impresión / PDF ─────────
@@ -1003,7 +1241,7 @@ function bindFormCita() {
     btn.textContent = 'Guardar y usar este paciente'; btn.disabled = false;
   });
 
-  // Guardar cita — sin cambios
+  // Guardar cita
   document.getElementById('btn-guardar-cita').addEventListener('click', async () => {
     const btn = document.getElementById('btn-guardar-cita');
     const pid = document.getElementById('c-paciente-id').value;
@@ -1012,11 +1250,22 @@ function bindFormCita() {
       return;
     }
 
+    // Si el panel de ciudad está visible, actualizar el paciente si cambió
+    const citaCiudadWrap = document.getElementById('cita-ciudad-wrap');
+    if (citaCiudadWrap?.style.display !== 'none') {
+      const nuevaCiudad = _getUbicacionCita();
+      if (nuevaCiudad && nuevaCiudad !== document.getElementById('c-paciente-ciudad').value) {
+        document.getElementById('c-paciente-ciudad').value = nuevaCiudad;
+        actualizarPaciente(pid, { ciudad: nuevaCiudad }).catch(() => {});
+      }
+    }
+
     const datos = {
       clienteId:     pid,
       clienteNombre: document.getElementById('c-paciente-nombre').value,
       clienteCiudad: document.getElementById('c-paciente-ciudad').value,
       usuarioId:     usuarioActual?.uid || '',
+      usuarioNombre: usuarioActual?.nombre || '',
       fecha:         document.getElementById('c-fecha').value,
       hora:          document.getElementById('c-hora').value,
       tipo:          document.getElementById('c-tipo').value,
@@ -1031,7 +1280,7 @@ function bindFormCita() {
       const fechaActual = document.getElementById('filter-fecha').value;
       await Promise.all([
         renderEstadisticas(),
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
         ...(fechaActual ? [cargarSlotsFecha(fechaActual)] : []),
       ]);
       setTimeout(() => {
@@ -1056,7 +1305,7 @@ function bindFormCita() {
           </button>`;
         setTimeout(() => { if (alertEl) { alertEl.textContent = ''; alertEl.className = ''; } }, 8000);
         document.getElementById('btn-usar-sugerencia')?.addEventListener('click', () => {
-          document.getElementById('c-hora').value  = sugerencia.hora;
+          setTimePicker('c-hora', sugerencia.hora);
           document.getElementById('c-fecha').value = sugerencia.fecha;
           alertEl.textContent = ''; alertEl.className = '';
         });
@@ -1069,10 +1318,27 @@ function bindFormCita() {
   });
 }
 
-function seleccionarPaciente(item, sugerencias) {
-  asignarPacienteACita(item.dataset.id, item.dataset.nombre, item.dataset.ciudad);
+async function seleccionarPaciente(item, sugerencias) {
+  const ciudad = item.dataset.ciudad || '';
+  asignarPacienteACita(item.dataset.id, item.dataset.nombre, ciudad);
   sugerencias.style.display = 'none';
   document.getElementById('quick-register').classList.remove('visible');
+
+  // Mostrar sección de ciudad para confirmar/actualizar
+  const wrap = document.getElementById('cita-ciudad-wrap');
+  if (wrap) {
+    wrap.style.display = 'block';
+    const dpto    = document.getElementById('cita-dpto');
+    const ciudSel = document.getElementById('cita-ciudad-sel');
+    // inicializarSelectsUbicacion carga la API y retorna el getter
+    _getUbicacionCita = await inicializarSelectsUbicacion(dpto, ciudSel);
+    // restaurarUbicacion pre-rellena con el valor guardado del paciente
+    if (ciudad) await restaurarUbicacion(dpto, ciudSel, ciudad);
+    // Sincronizar campo oculto cuando cambie la ciudad
+    ciudSel.addEventListener('change', () => {
+      document.getElementById('c-paciente-ciudad').value = _getUbicacionCita();
+    });
+  }
 }
 
 function asignarPacienteACita(id, nombre, ciudad) {
@@ -1090,7 +1356,7 @@ function bindFormReprogramar() {
     const hora  = document.getElementById('r-hora').value;
 
     btn.textContent = 'Confirmando...'; btn.disabled = true;
-    const res = await reprogramarCita(citaReprogramarId, fecha, hora);
+    const res = await reprogramarCita(citaReprogramarId, fecha, hora, usuarioActual?.uid, usuarioActual?.nombre);
 
     if (res.ok) {
       cerrarModal('modal-reprogramar');
@@ -1115,7 +1381,7 @@ function bindFormReprogramar() {
         setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 8000);
         document.getElementById('btn-usar-sugerencia-reprog')
           ?.addEventListener('click', () => {
-            document.getElementById('r-hora').value  = sugerencia.hora;
+            setTimePicker('r-hora', sugerencia.hora);
             document.getElementById('r-fecha').value = sugerencia.fecha;
             alertEl.textContent = ''; alertEl.className = '';
           });
@@ -1205,7 +1471,10 @@ function bindCronograma() {
 }
 
 async function cargarCronograma() {
+  // En día de viaje, el cronograma del admin muestra solo las citas de esa sede.
+  const viajeHoy = await viajeEnFecha(HOY);
   await renderCronograma({
+    filtrarSede: viajeHoy ? viajeHoy.ciudadFull : null,
     onCompletar: async (id) => {
       const card = document.querySelector(`[data-crono-completar="${id}"]`)?.closest('.crono-card')
                 || document.querySelector(`[data-cita-id="${id}"]`);
@@ -1225,7 +1494,9 @@ async function cargarCronograma() {
       });
     },
     onCancelar: async (id) => {
-      await cancelarCita(id, 'Cancelada desde cronograma');
+      const motivo = await pedirMotivoCancelacion();
+      if (!motivo) return;
+      await cancelarCita(id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
       await renderEstadisticas();
     },
     onReprogramar: (id) => {
@@ -1244,12 +1515,11 @@ async function cargarCronograma() {
 // ASISTENTE VOZ — sin cambios
 // ══════════════════════════════════════════════════════════
 function abrirModalCitaDesdeVoz(datos) {
-  const horaPresel = datos.hora || null;
-  abrirModalCita(horaPresel);
-
   if (datos.fecha) {
     document.getElementById('c-fecha').value = datos.fecha;
   }
+  const horaPresel = datos.hora || null;
+  abrirModalCita(horaPresel);
   if (datos.tipo) {
     const sel = document.getElementById('c-tipo');
     const opcion = Array.from(sel.options)

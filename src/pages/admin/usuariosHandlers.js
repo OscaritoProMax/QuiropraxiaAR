@@ -139,8 +139,28 @@ function bindNuevoUsuario() {
       const password = document.getElementById('u-password').value;
       const rol      = document.getElementById('u-rol').value;
 
+      // Validaciones locales antes de llamar Firebase
+      if (!nombre) {
+        mostrarAlerta('alert-nuevo-usr', 'El nombre es obligatorio.', 'error');
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        mostrarAlerta('alert-nuevo-usr', 'Ingresa un correo valido.', 'error');
+        return;
+      }
+      if (!password || password.length < 6) {
+        mostrarAlerta('alert-nuevo-usr', 'La contrasena debe tener al menos 6 caracteres.', 'error');
+        return;
+      }
+
       btn.disabled = true; btn.textContent = 'Creando...';
+
+      // authService.crearUsuario usa una instancia secundaria de Firebase
+      // Auth para crear el usuario, evitando que se reemplace la sesion
+      // del administrador (createUserWithEmailAndPassword inicia sesion
+      // automaticamente como el usuario recien creado).
       const res = await crearUsuario(nombre, email, password, rol);
+
       btn.disabled = false; btn.textContent = 'Crear usuario';
 
       if (res.ok) {
@@ -148,7 +168,7 @@ function bindNuevoUsuario() {
         setTimeout(() => {
           cerrarModal('modal-nuevo-usr');
           ['u-nombre','u-email','u-password'].forEach(id =>
-            document.getElementById(id).value = '');
+            { const el = document.getElementById(id); if (el) el.value = ''; });
         }, 800);
         await cargarTablaUsuarios();
       } else {

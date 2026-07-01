@@ -10,6 +10,8 @@ import { getDocs, collection, query,
          where }                      from 'firebase/firestore';
 import { db }                         from '../../core/firebase.js';
 import { badgeEstado, HOY }           from '../../shared/helpers.js';
+import { hora12Display }              from '../../shared/timePicker.js';
+import { mostrarHistorialCita }       from './ui.js';
 
 // ── Hora actual en formato "HH:MM" ────────────────────────
 function horaActual() {
@@ -46,7 +48,7 @@ export async function autoCompletarCitasViejas() {
 
     // Completar en paralelo (sin esperar una por una)
     await Promise.all(
-      snap.docs.map(d => cambiarEstado(d.id, ESTADOS.COMPLETADA))
+      snap.docs.map(d => cambiarEstado(d.id, ESTADOS.COMPLETADA, null, 'Sistema', 'Auto-completada por vencimiento de fecha'))
     );
 
     return snap.docs.length; // cuántas se auto-completaron
@@ -59,7 +61,7 @@ export async function autoCompletarCitasViejas() {
 // ══════════════════════════════════════════════════════════
 // RENDERIZAR CRONOGRAMA
 // ══════════════════════════════════════════════════════════
-export async function renderCronograma({ onReprogramar, onCancelar, onCompletar }) {
+export async function renderCronograma({ onReprogramar, onCancelar, onCompletar, permitirCompletar = true, filtrarSede = null }) {
   const cont = document.getElementById('cronograma-container');
   if (!cont) return;
   cont.innerHTML = '<div class="empty-state">Cargando cronograma...</div>';
@@ -67,7 +69,10 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
   const citas = await obtenerCitasPorFecha(HOY);
 
   // Solo citas no canceladas
-  const activas = citas.filter(c => c.estado !== ESTADOS.CANCELADA);
+  let activas = citas.filter(c => c.estado !== ESTADOS.CANCELADA);
+
+  // En día de viaje, el admin solo ve las citas de esa sede.
+  if (filtrarSede) activas = activas.filter(c => (c.sede || '') === filtrarSede);
 
   if (!activas.length) {
     cont.innerHTML = '<div class="empty-state">No hay citas programadas para hoy</div>';
@@ -92,7 +97,7 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
         🟢 Atendiendo ahora
       </div>`;
     en_curso.forEach(c => {
-      html += tarjetaCita(c, 'en_curso');
+      html += tarjetaCita(c, 'en_curso', permitirCompletar);
     });
   }
 
@@ -101,12 +106,13 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
     html += `
       <div class="crono-section-label crono-pasada-label">
         ⚠️ Hora pasada — sin atender (${pasadas.length})
+        ${permitirCompletar ? `
         <button class="btn btn-soft btn-sm" id="btn-completar-pasadas" style="margin-left:12px">
           ✓ Completar todas
-        </button>
+        </button>` : ''}
       </div>`;
     pasadas.forEach(c => {
-      html += tarjetaCita(c, 'pasada');
+      html += tarjetaCita(c, 'pasada', permitirCompletar);
     });
   }
 
@@ -117,7 +123,7 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
         🕐 Próximas (${proximas.length})
       </div>`;
     proximas.forEach(c => {
-      html += tarjetaCita(c, 'proxima');
+      html += tarjetaCita(c, 'proxima', permitirCompletar);
     });
   }
 
@@ -128,25 +134,35 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
         ✅ Completadas hoy (${completadas.length})
       </div>`;
     completadas.forEach(c => {
-      html += tarjetaCita(c, 'completada');
+      html += tarjetaCita(c, 'completada', permitirCompletar);
     });
   }
 
   cont.innerHTML = html;
 
   // ── Eventos ───────────────────────────────────────────
-  cont.querySelectorAll('[data-crono-completar]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      await onCompletar(btn.dataset.cronoCompletar);
-      await renderCronograma({ onReprogramar, onCancelar, onCompletar });
+  const citasPorId = Object.fromEntries(activas.map(c => [c.id, c]));
+  cont.querySelectorAll('[data-crono-historial]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cita = citasPorId[btn.dataset.cronoHistorial];
+      if (cita) mostrarHistorialCita(cita);
     });
   });
+
+  if (permitirCompletar) {
+    cont.querySelectorAll('[data-crono-completar]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await onCompletar(btn.dataset.cronoCompletar);
+        await renderCronograma({ onReprogramar, onCancelar, onCompletar, permitirCompletar });
+      });
+    });
+  }
 
   cont.querySelectorAll('[data-crono-cancelar]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('¿Cancelar esta cita?')) return;
       await onCancelar(btn.dataset.cronoCancelar);
-      await renderCronograma({ onReprogramar, onCancelar, onCompletar });
+      await renderCronograma({ onReprogramar, onCancelar, onCompletar, permitirCompletar });
     });
   });
 
@@ -156,18 +172,18 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar 
 
   // ── Completar todas las pasadas ───────────────────────
   const btnTodas = document.getElementById('btn-completar-pasadas');
-  if (btnTodas) {
+  if (btnTodas && permitirCompletar) {
     btnTodas.addEventListener('click', async () => {
       btnTodas.textContent = 'Completando...';
       btnTodas.disabled = true;
       await Promise.all(pasadas.map(c => onCompletar(c.id)));
-      await renderCronograma({ onReprogramar, onCancelar, onCompletar });
+      await renderCronograma({ onReprogramar, onCancelar, onCompletar, permitirCompletar });
     });
   }
 }
 
 // ── Tarjeta HTML de cada cita ─────────────────────────────
-function tarjetaCita(cita, tipo) {
+function tarjetaCita(cita, tipo, permitirCompletar = true) {
   const esActiva = cita.estado === ESTADOS.ACTIVA;
 
   const borderColor = {
@@ -192,19 +208,21 @@ function tarjetaCita(cita, tipo) {
       data-cliente-ciudad="${cita.clienteCiudad || ''}"
       data-tipo-sesion="${cita.tipo          || 'Ajuste general'}"
       data-hora="${cita.hora}">
-      <div class="crono-hora">${cita.hora}</div>
+      <div class="crono-hora">${hora12Display(cita.hora)}</div>
       <div class="crono-info">
         <div class="crono-nombre">${cita.clienteNombre}</div>
         <div class="crono-meta">${cita.tipo} · ${cita.clienteCiudad || 'Ciudad no registrada'}</div>
         ${cita.notas ? `<div class="crono-notas">"${cita.notas}"</div>` : ''}
       </div>
       ${badgeEstado(cita.estado)}
-      ${esActiva ? `
-        <div class="crono-actions">
+      <div class="crono-actions">
+        <button class="btn btn-gray btn-sm" data-crono-historial="${cita.id}" title="Ver información e historial">ℹ Info</button>
+        ${esActiva ? `
           <button class="btn btn-gray btn-sm"   data-crono-reprog="${cita.id}">↺ Reprogramar</button>
           <button class="btn btn-danger btn-sm" data-crono-cancelar="${cita.id}">✕ Cancelar</button>
-          <button class="btn btn-soft btn-sm"   data-crono-completar="${cita.id}">✓ Completar</button>
-        </div>` : ''}
+          ${permitirCompletar ? `<button class="btn btn-soft btn-sm" data-crono-completar="${cita.id}">✓ Completar</button>` : ''}
+        ` : ''}
+      </div>
     </div>`;
 }
 

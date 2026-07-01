@@ -1,7 +1,10 @@
 // src/pages/index/loginController.js
 
-import { login, loginConGoogle }  from "../../core/authService.js";
-import { redirigirPorRol }        from "../../core/router.js";       
+import { login, loginConGoogle,
+         getUsuarioPorId }        from "../../core/authService.js";
+import { redirigirPorRol }        from "../../core/router.js";
+import { auth }                   from "../../core/firebase.js";
+import { onAuthStateChanged }     from "firebase/auth";
 import {
   mostrarError,
   limpiarError,
@@ -18,6 +21,26 @@ export function initLogin() {
   const btnGoogle = document.getElementById("btn-google");
 
   resetearCampos();
+
+  // ── Auto-login: si el dispositivo ya tiene una sesión válida guardada,
+  //    entramos directo sin volver a pedir credenciales. ──────────────
+  const splash       = document.getElementById("session-check");
+  const ocultarSplash = () => { if (splash) splash.style.display = "none"; };
+  const safety       = setTimeout(ocultarSplash, 5000); // por si algo falla
+
+  const unsub = onAuthStateChanged(auth, async (fbUser) => {
+    unsub();
+    if (!fbUser) { clearTimeout(safety); ocultarSplash(); return; }
+    try {
+      const usuario = await getUsuarioPorId(fbUser.uid);
+      if (usuario && usuario.activo) {
+        await redirigirPorRol(usuario);   // dejamos el splash hasta navegar
+        return;
+      }
+    } catch (_) { /* ignorar y mostrar login */ }
+    clearTimeout(safety);
+    ocultarSplash();
+  });
 
   // ── Login con email y contraseña ──────────────────────
   form.addEventListener("submit", async (e) => {

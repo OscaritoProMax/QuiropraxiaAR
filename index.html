@@ -1,14 +1,20 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quiromasajes — Iniciar sesión</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="./src/pages/css/main.css">
   <link rel="stylesheet" href="./src/pages/css/login.css">
 </head>
 
 <body>
+
+  <!-- Verificación de sesión guardada (auto-login). Se oculta si no hay sesión. -->
+  <div id="session-check" style="position:fixed;inset:0;z-index:99999;background:var(--th-bg,#fff);display:flex;align-items:center;justify-content:center">
+    <img src="./img/fff.png" alt="" style="max-width:160px;max-height:160px;object-fit:contain;opacity:.9"/>
+  </div>
 
   <div class="login-wrapper">
 
@@ -16,7 +22,7 @@
       <div class="login-banner-logo">Quiromasajes E.F</div>
       <div class="login-banner-sub">Sistema Administrativo</div>
       <div class="login-banner-icon">
-        <img src="./img/quiro.png" alt="Logo Quiromasajes">
+        <img src="./img/fff.png" alt="Logo Quiromasajes">
       </div>
       <div class="login-banner-title">
         Bienvenido al sistema de gestión Quiromasajes E.F
@@ -26,7 +32,7 @@
     <div class="login-form-panel">
       
       <div class="login-mobile-branding">
-        <img src="./img/quiro.png" alt="Logo Quiromasajes">
+        <img src="./img/fff.png" alt="Logo Quiromasajes">
         <h2>Quiromasajes E.F</h2>
         <p>Sistema Administrativo</p>
       </div>

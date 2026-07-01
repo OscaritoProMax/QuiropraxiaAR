@@ -1,18 +1,148 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quiromasajes — Call-center</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/dashboard-llamada-activa.css">
   <style>
 
   </style>
 </head>
 <body>
 
+<div id="alert-global"></div>
+
 <div class="app-container">
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL RÁPIDO DE CLIENTE EN LLAMADA
+════════════════════════════════════════════════════════════ -->
+<div class="quick-search-panel" id="quick-search-panel">
+  <div class="search-header">
+    <button class="qsp-back" id="qsp-back" title="Volver a la búsqueda" aria-label="Volver">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </button>
+    <h3 id="qsp-titulo">🔍 Cliente en Llamada</h3>
+    <button class="btn-close-search" id="btn-close-search" title="Cerrar">×</button>
+  </div>
+
+  <!-- Track horizontal: pantalla de búsqueda → pantalla de cliente -->
+  <div class="qsp-track" id="qsp-track">
+
+    <!-- PANTALLA 1 — Búsqueda -->
+    <section class="qsp-screen qsp-screen-search">
+      <div class="search-input-group">
+        <input
+          type="text"
+          id="quick-search-input"
+          class="quick-search-input"
+          placeholder="Ingresa número o nombre..."
+          autocomplete="off"
+        />
+        <button class="btn-search" id="btn-search-cliente">
+          <span>🔍</span>
+        </button>
+      </div>
+
+      <!-- Resultados cuando hay varias coincidencias por nombre -->
+      <div id="search-resultados-multiples" style="display:none;padding:0 12px 8px"></div>
+
+      <div class="no-client-state" id="no-client-state">
+        <div class="empty-illustration">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </div>
+        <p>Ingresa número o nombre del cliente</p>
+      </div>
+    </section>
+
+    <!-- PANTALLA 2 — Información del cliente -->
+    <section class="qsp-screen qsp-screen-client">
+      <div class="client-info-panel" id="client-info-panel">
+
+        <div class="client-header">
+          <div class="client-avatar" id="client-avatar-search">?</div>
+          <div class="client-header-info">
+            <h2 id="client-name-search">—</h2>
+            <p id="client-phone-search">—</p>
+            <p id="client-city-search" style="font-size:12px;color:#8492a6;display:none">—</p>
+          </div>
+        </div>
+
+        <div class="section-available-citas">
+          <div class="section-title">⏰ Disponibilidad</div>
+          <div class="qsp-fecha-row">
+            <input type="date" id="quick-book-fecha" class="input-small"/>
+            <button class="qsp-fecha-btn" id="qsp-fecha-hoy" type="button">Hoy</button>
+            <button class="qsp-fecha-btn" id="qsp-fecha-manana" type="button">Mañana</button>
+          </div>
+          <div class="available-slots-search" id="available-slots-search">
+            <div class="loading-dots">Cargando...</div>
+          </div>
+        </div>
+
+        <div class="section-history-citas">
+          <div class="section-title">📅 Últimas citas</div>
+          <div class="history-citas-list" id="history-citas-list">
+            <p class="empty-state">Sin registros</p>
+          </div>
+        </div>
+
+        <div class="section-quick-booking">
+          <div class="section-title">+ Agendar cita</div>
+          <div class="quick-booking-form">
+            <select id="quick-book-time" class="input-small" disabled>
+              <option value="">Selecciona horario</option>
+            </select>
+            <select id="quick-book-service" class="input-small">
+              <option>Ajuste general</option>
+              <option>Evaluación inicial</option>
+              <option>Terapia lumbar</option>
+              <option>Terapia cervical</option>
+              <option>Seguimiento</option>
+              <option>Descompresión</option>
+            </select>
+            <button class="btn-quick-book" id="btn-quick-book" disabled>✓ Agendar</button>
+          </div>
+        </div>
+
+        <div class="quick-notes">
+          <textarea
+            id="quick-notes"
+            class="input-small"
+            placeholder="Notas de la llamada..."
+            rows="2"
+          ></textarea>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<button class="btn-floating-search" id="btn-open-search" title="Buscar cliente en llamada">
+  <span class="icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+    </svg>
+  </span>
+</button>
+
+<!-- Botón flotante del resumen para informe — solo visible en la vista Citas -->
+<button class="btn-floating-reporte" id="btn-reporte-fab" title="Resumen para informe" style="display:none">
+  <span class="icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1z"/>
+      <line x1="9" y1="11" x2="15" y2="11"/>
+      <line x1="9" y1="15" x2="13" y2="15"/>
+    </svg>
+  </span>
+</button>
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -36,7 +166,21 @@
 
 
 
-    <button class="menu-btn menu-active" data-view="citas">
+    <button class="menu-btn menu-active" data-view="dashboard">
+      <span class="menu-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </span>
+      <span class="menu-label">Dashboard</span>
+    </button>
+
+    <button class="menu-btn" data-view="citas">
       <span class="menu-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
       </span>
@@ -54,9 +198,31 @@
       <span class="menu-label">Cronograma</span>
     </button>
 
+    <button class="menu-btn" data-view="semana">
+      <span class="menu-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+        </svg>
+      </span>
+      <span class="menu-label">Semana</span>
+    </button>
 
-  </nav>
+    <div class="menu-section-label">Sistema</div>
 
+    <button class="menu-btn" data-view="configuracion">
+      <span class="menu-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </span>
+      <span class="menu-label">Configuración</span>
+    </button>
 
     <div class="menu-section-label">Herramientas</div>
     <button class="menu-btn" data-view="herramientas">
@@ -65,6 +231,8 @@
       </span>
       <span class="menu-label">Herramientas</span>
     </button>
+  </nav>
+
   <div class="logout-area">
     <button class="logout-btn" id="btn-logout">
       <span class="menu-label">Cerrar sesión</span>
@@ -84,12 +252,74 @@
 
     <div class="page-content">
 
-      <!-- DASHBOARD — no disponible para call-center -->
+      <!-- DASHBOARD — resumen del dia, sin ingresos ni pacientes (call-center no tiene acceso a finanzas/pacientes) -->
+      <section id="view-dashboard" class="view-section active">
+        <div class="kpi-grid">
 
+          <div class="kpi-card kpi-blue kpi-clickable" id="kpi-card-citas">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8"  y1="2" x2="8"  y2="6"/>
+                  <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-citas">—</div>
+            <div class="kpi-label">Citas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-citas">cargando...</div>
+          </div>
 
+          <div class="kpi-card kpi-cyan kpi-clickable" id="kpi-card-pendientes">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-pendientes">—</div>
+            <div class="kpi-label">Pendientes hoy</div>
+            <div class="kpi-sub">citas activas restantes</div>
+          </div>
+
+          <div class="kpi-card kpi-red" id="kpi-card-canceladas">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9"  y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-down" id="kpi-trend-cancel">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-canceladas">—</div>
+            <div class="kpi-label">Canceladas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-cancel">tasa de cancelacion</div>
+          </div>
+
+        </div>
+
+        <!-- Paneles: cita actual + agente IA (renderizados por ui.js) -->
+        <div id="dash-panel-wrap"></div>
+
+        <!-- Citas que un viaje del quiropráctico dejó pendientes por reprogramar -->
+        <div id="dash-reprogramar-wrap"></div>
+      </section>
 
       <!-- CITAS — vista de slots ─────────────────────────── -->
-      <section id="view-citas" class="view-section active">
+      <section id="view-citas" class="view-section">
         <div class="search-items" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
           <div style="display:flex;align-items:center;gap:10px">
             <label class="form-label" style="margin:0">Fecha:</label>
@@ -101,6 +331,7 @@
           </div>
         </div>
         <div id="alert-cita"></div>
+
         <div id="slots-container" class="slots-wrap">
           <div class="empty-state">Selecciona una fecha para ver la agenda</div>
         </div>
@@ -117,6 +348,67 @@
       
         <!-- Contenedor de tarjetas -->
         <div id="cronograma-container"></div>
+      </section>
+
+      <!-- SEMANA — calendario mensual con ocupación + drill-down a semana ── -->
+      <section id="view-semana" class="view-section">
+        <div id="semana-contenedor"></div>
+      </section>
+
+      <!-- CONFIGURACIÓN ─────────────────────────── -->
+      <section id="view-configuracion" class="view-section">
+        <div class="config-wrap">
+
+          <div class="config-section">
+            <h3 class="config-section-title">Tema del sistema</h3>
+            <div class="theme-options">
+
+              <div class="theme-card theme-card-active" data-theme-pick="light">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#0f172a"></div>
+                  <div class="theme-preview-main" style="background:#f0f4fa">
+                    <div class="theme-preview-card" style="background:#fff"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Claro profesional</div>
+                <div class="theme-card-sub">Blanco y azul · alta legibilidad</div>
+              </div>
+
+              <div class="theme-card" data-theme-pick="dark">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#080d18"></div>
+                  <div class="theme-preview-main" style="background:#0d1117">
+                    <div class="theme-preview-card" style="background:#161b27"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Dark mode elegante</div>
+                <div class="theme-card-sub">Oscuro moderno · menor fatiga visual</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3 class="config-section-title">Sesión</h3>
+            <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+              Cierra tu sesión de forma segura. Deberás volver a iniciar sesión para ingresar.
+            </p>
+            <button class="btn btn-danger" id="btn-logout-config">Cerrar sesión</button>
+          </div>
+
+        </div>
       </section>
 
 
@@ -141,7 +433,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Teléfono celular <span>*</span></label>
-        <input class="input-text" id="p-tel" placeholder="+57 300 000 0000" type="tel"/>
+        <input class="input-text" id="p-tel" placeholder="3001234567" type="tel" maxlength="10" minlength="10" pattern="[0-9]{10}"/>
       </div>
       </div>
       <div class="form-row-2col">
@@ -310,6 +602,29 @@
     <div class="modal-actions">
       <button class="btn btn-gray" data-close="modal-reprogramar">Cancelar</button>
       <button class="btn btn-primary" id="btn-confirmar-reprog">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODAL Resumen para informe ══ -->
+<div class="modal-overlay" id="modal-reporte">
+  <div class="modal-box">
+    <button class="modal-close" data-close="modal-reporte">×</button>
+    <h2 class="modal-title">📋 Resumen para informe</h2>
+    <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+      Citas del <span id="reporte-dia-fecha" style="font-weight:600">—</span>
+    </p>
+    <div class="reporte-dia-stats" id="reporte-dia-stats" style="margin-bottom:14px"></div>
+    <div class="reporte-dia-lista" id="reporte-dia-lista"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-reporte">Cerrar</button>
+      <button class="btn btn-primary" id="btn-enviar-whatsapp">
+        <span style="display:inline-flex;align-items:center;gap:7px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.516 5.26l-.999 3.648 3.972-.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+          Enviar por WhatsApp
+        </span>
+      </button>
     </div>
   </div>
 </div>

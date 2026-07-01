@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "663937519041",
+    "project_id": "quiromasajes-753c1",
+    "storage_bucket": "quiromasajes-753c1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:663937519041:android:9cf57432e258839b7d3340",
+        "android_client_info": {
+          "package_name": "com.quiromasajes.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "663937519041-cjfp86jrsq2gf5e672ppt6vhqdpl89mg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.quiromasajes.app",
+            "certificate_hash": "ea3996735b548ca1829f7a7ae1fc85f8125cb7db"
+          }
+        },
+        {
+          "client_id": "663937519041-2qi6is2odd4ckvrqit608s08tjuar62b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1WlNBpmCvhrBKovSC7w1ArnOR38PHR3s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "663937519041-2qi6is2odd4ckvrqit608s08tjuar62b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

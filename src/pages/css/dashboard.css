@@ -3,9 +3,9 @@
    Proyecto: Quiromasajes
    ============================================================ */
 
-/* ══════════════════════════════════════════════════════════
-   VARIABLES DE TEMA — LIGHT (defecto)
-══════════════════════════════════════════════════════════ */
+ /* ════════════════════════════════════════════════════════════
+    VARIABLES DE TEMA — LIGHT (defecto)
+═════════════════════════════════════════════════════════════ */
 :root,
 [data-theme="light"] {
   --th-bg:           #f0f4fa;
@@ -69,14 +69,14 @@ body,
 .pac-sidenav,
 .pac-content,
 .crono-card,
-.slot-row,
+.slot.row,
 .search-items {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    LAYOUT RAIZ
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 body {
   background-color: var(--th-bg);
   margin: 0;
@@ -90,9 +90,9 @@ body {
   overflow: hidden;
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    SIDEBAR
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .sidebar {
   width: 230px;
   flex-shrink: 0;
@@ -266,9 +266,9 @@ body {
   background: var(--danger-soft);
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    AREA PRINCIPAL
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .main-area {
   flex: 1;
   display: flex;
@@ -328,9 +328,9 @@ body {
 .view-section        { display: none; animation: transitionIn-Y-over 0.3s ease; }
 .view-section.active { display: block; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    KPI GRID — tarjetas de estadisticas expandidas
-══════════════════════════════════════════════════════════ */
+═════════════════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -408,9 +408,9 @@ body {
 .kpi-red    { --kpi-accent: #c0392b; --kpi-icon-bg: rgba(192,57,43,.1); }
 .kpi-cyan   { --kpi-accent: #0891b2; --kpi-icon-bg: rgba(8,145,178,.1); }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    PANELES DEL DASHBOARD (cita actual + IA)
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .dash-panels-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -570,9 +570,9 @@ body {
 .ia-resultado-val   { font-weight: 500; color: var(--th-text); }
 .ia-voz-acciones    { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    GRID EXTRA DEL DASHBOARD
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .dash-extra-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -582,9 +582,9 @@ body {
 
 .dash-panel-actividad { grid-column: span 1; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    SESIONES POR TIPO — barras horizontales
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .tipos-barras-wrap { display: flex; flex-direction: column; gap: 10px; }
 
 .tipo-row { width: 100%; }
@@ -607,9 +607,9 @@ body {
   transition: width 1s cubic-bezier(.4,0,.2,1);
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    RING — nuevos vs recurrentes
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .ring-wrap {
   position: relative;
   display: flex;
@@ -664,9 +664,9 @@ body {
 .ring-legend-dot-rec { background: #0A76D8; }
 .ring-legend-dot-new { background: #0891b2; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    ACTIVIDAD RECIENTE
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .actividad-lista { display: flex; flex-direction: column; }
 .actividad-item {
   display: flex;
@@ -694,9 +694,9 @@ body {
 .actividad-text { font-size: 13px; color: var(--th-text); line-height: 1.5; }
 .actividad-time { font-size: 11px; color: var(--th-text3); margin-top: 2px; }
 
-/* ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    SLOTS DE CITAS
-══════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .slots-wrap { display: flex; flex-direction: column; gap: 8px; }
 .slot-row {
   display: flex;
@@ -734,9 +734,9 @@ body {
 }
 .slot-disponible .slot-time { color: var(--th-text3); }
 
-/* ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    CRONOGRAMA
-══════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .crono-topbar {
   display: flex;
   align-items: center;
@@ -786,9 +786,9 @@ body {
 .crono-pasada-label   { color: var(--danger); }
 .crono-proxima-label  { color: var(--primary); }
 
-/* ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    PACIENTES — layout
-══════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .pac-layout {
   display: grid;
   grid-template-columns: 160px 1fr;
@@ -944,24 +944,22 @@ body {
   flex-wrap: wrap;
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    CONFIGURACION
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .config-wrap {
   max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: 0;
 }
-
 .config-section {
   background: var(--th-card);
   border: 1px solid var(--th-card-border);
-  border-radius: 8px;
+  border-radius: 8;
   padding: 22px 24px;
   margin-bottom: 16px;
 }
-
 .config-section-title {
   font-size: 15px;
   font-weight: 600;
@@ -994,7 +992,6 @@ body {
   border-color: var(--primary);
   background: var(--primary-soft);
 }
-
 .theme-check-icon {
   display: none;
   color: var(--primary);
@@ -1002,7 +999,6 @@ body {
   margin-bottom: 6px;
 }
 .theme-card-active .theme-check-icon { display: flex; }
-
 .theme-preview {
   width: 100%;
   height: 56px;
@@ -1024,7 +1020,6 @@ body {
   height: 55%;
   border-radius: 3px;
 }
-
 .theme-card-label { font-size: 13px; font-weight: 600; color: var(--th-text); }
 .theme-card-sub   { font-size: 11px; color: var(--th-text2); margin-top: 3px; }
 
@@ -1038,7 +1033,7 @@ body {
 }
 .toggle-row:last-child { border-bottom: none; }
 .toggle-info .toggle-name { font-size: 13px; font-weight: 500; color: var(--th-text); }
-.toggle-info .toggle-desc { font-size: 11px; color: var(--th-text2); margin-top: 2px; }
+  .toggle-info .toggle-desc { font-size: 11px; color: var(--th-text2); margin-top: 2px; }
 
 .toggle-switch {
   width: 40px;
@@ -1063,9 +1058,9 @@ body {
 .toggle-switch.toggle-on { background: var(--primary); }
 .toggle-switch.toggle-on::after { left: 21px; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    SEARCH BAR
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .search-items {
   background: var(--th-card);
   border: 1px solid var(--th-card-border);
@@ -1079,9 +1074,9 @@ body {
   box-shadow: 0 2px 5px rgba(95,95,97,.06);
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    DASHBOARD — estadisticas (compatibilidad con ui.js original)
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 .dashboard-items {
   border: 1.5px solid var(--th-card-border);
   border-radius: 7px;
@@ -1116,9 +1111,9 @@ body {
 @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    PACIENTES — tarjeta
-══════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .patient-card {
   background: var(--th-card);
   border: 1px solid var(--th-card-border);
@@ -1139,9 +1134,9 @@ body {
 .patient-info .patient-name { font-size: 14px; font-weight: 500; color: var(--th-text); }
 .patient-info .patient-meta { font-size: 12px; color: var(--th-text2); margin-top: 2px; }
 
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    RESPONSIVE
-══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
   .sidebar  { width: 64px; }
   .sidebar .profile-container,
@@ -1161,9 +1156,9 @@ body {
   .theme-options { flex-direction: column; }
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    ANIMACIONES
-══════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 @keyframes pulso {
   0%, 100% { transform: scale(1); }
   50%       { transform: scale(1.08); }
@@ -1174,21 +1169,21 @@ body {
 }
 @keyframes transitionIn-Y-over {
   from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; translateY: 0; }
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    OPTIMIZACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES (< 768px)
-   ══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  
+
   /* 1. Permitir scroll vertical en móviles en todo el viewport si es necesario */
   body {
     overflow-y: auto !important;
   }
 
   /* ============================================================
-     Ajustes para que .slot-row no desborde en móviles 
+     Ajustes para que .slot-row no desborde en móviles
      ============================================================ */
   .slot-row {
     display: flex !important;
@@ -1337,12 +1332,11 @@ body {
   }
 }
 
-
-/* ══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    OPTIMIZACIÓN RESPONSIVE MEJORADA (MÓVILES ULTRA COMPACTO)
-   ══════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  
+
   body {
     overflow-y: auto !important;
   }
@@ -1369,18 +1363,17 @@ body {
     padding: 0 !important;
   }
 
-  .sidebar-header, 
-  .profile-container, 
-  .menu-section-label, 
-  .logout-area, 
+  .sidebar-header,
+  .profile-container,
+  .menu-section-label,
+  .logout-area,
   .menu-btn .menu-label {
     display: none !important;
   }
 
   .menu-container {
     display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-around !important;
+    flex-direction: row !justify-content: space-around !important;
     align-items: center !important;
     width: 100% !important;
     padding: 0 10px !important;
@@ -1431,7 +1424,7 @@ body {
     margin: 0 !important;
   }
 
-  .topbar-left p, 
+  .topbar-left p,
   .topbar-clock {
     display: none !important;
   }
@@ -1452,12 +1445,10 @@ body {
   /* Rediseño minificado de tarjetas individuales */
   .kpi-card {
     padding: 10px 12px !important;
+    min-height: 85px !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    height: auto !important;
-    min-height: 85px !important;
-    border-radius: 8px !important;
   }
 
   /* Redimensionar el ícono para que no compita con el texto */
@@ -1466,7 +1457,7 @@ body {
     height: 28px !important;
     border-radius: 6px !important;
   }
-  
+
   .kpi-icon svg {
     width: 14px !important;
     height: 14px !important;
@@ -1488,687 +1479,183 @@ body {
 }
 
 /* ============================================================
-   FORZAR BUSCADOR (.crm-search-bar) ARRIBA EN MÓVILES (< 768px)
+   RESPONSIVE FIX FOR SEARCH ITEMS IN APPOINTMENTS VIEW
    ============================================================ */
 @media (max-width: 768px) {
-  
-  body {
-    overflow-y: auto !important;
-  }
-
-  .app-container {
-    flex-direction: column !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* NAVBAR INFERIOR (MÓVIL) */
-  .sidebar {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
+  .search-items .input-text {
     width: 100% !important;
-    height: 60px !important;
-    flex-direction: row !important;
-    z-index: 999 !important;
-    border-right: none !important;
-    border-top: 1.5px solid var(--th-sidebar-border) !important;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
-    background: var(--th-sidebar) !important;
-    padding: 0 !important;
-  }
-
-  .sidebar-header, 
-  .profile-container, 
-  .menu-section-label, 
-  .logout-area, 
-  .menu-btn .menu-label {
-    display: none !important;
-  }
-
-  .menu-container {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-around !important;
-    align-items: center !important;
-    width: 100% !important;
-    padding: 0 10px !important;
-    margin: 0 !important;
-  }
-
-  .menu-btn {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 4px !important;
-    flex: 1 !important;
-    padding: 6px 0 !important;
-    height: 100% !important;
-    background: transparent !important;
-  }
-
-  .menu-btn.menu-active {
-    border-bottom: 3px solid var(--primary) !important;
-    color: var(--primary) !important;
-  }
-
-  /* ÁREA PRINCIPAL Y CONTENEDOR FLEX */
-  .main-area {
-    width: 100% !important;
-    min-height: 100vh !important;
-    overflow: visible !important;
-    padding-bottom: 80px !important; /* Margen para no tapar contenido con la barra inferior */
-  }
-
-  .page-content {
-    padding: 12px 12px !important;
-    display: flex !important;
-    flex-direction: column !important; /* Obliga a los hijos a ordenarse en vertical */
-  }
-
-  /* 📊 TARJETAS EN DOS COLUMNAS */
-  .kpi-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    margin-bottom: 16px !important;
-  }
-
-  .kpi-card {
-    padding: 10px 12px !important;
-    min-height: 85px !important;
-  }
-
-  /* 🔍 ACCIÓN MAESTRA: ENVIAR LA BARRA DE BÚSQUEDA HASTA ARRIBA */
-  .crm-search-bar {
-    order: -1 !important; /* Esto la empuja visualmente al inicio de .page-content */
-    display: flex !important;
-    flex-direction: column !important; /* Apilar elementos internos en móviles */
-    gap: 10px !important;
-    width: 100% !important;
-    background: var(--th-card) !important;
-    padding: 12px !important;
-    border-radius: 8px !important;
-    border: 1px solid var(--th-card-border) !important;
-    margin-bottom: 16px !important;
-  }
-
-  /* Optimizar las cajas de entrada internas de la búsqueda */
-  .crm-search-wrap, 
-  .crm-ciudad-wrap {
-    width: 100% !important;
-    margin: 0 !important;
-  }
-
-  .crm-search-input {
-    width: 100% !important;
-    height: 42px !important; /* Altura cómoda para clics táctiles */
-    font-size: 14px !important;
-  }
-
-  /* Alinear de forma compacta el contador y los botones de vista */
-  .crm-view-toggle {
-    display: flex !important;
-    justify-content: space-between !important;
-    width: 100% !important;
-    margin-top: 4px !important;
-  }
-
-  .crm-count {
-    display: block !important;
-    text-align: right !important;
-    font-size: 13px !important;
-    color: var(--text-muted) !important;
-    margin-top: 4px !important;
-  }
-}
-
-/* ============================================================
-   REDISEÑO MÓVIL DEFINITIVO: .crm-search-bar COMPACTO Y ARRIBA
-   ============================================================ */
-@media (max-width: 768px) {
-  
-  body {
-    overflow-y: auto !important;
-  }
-
-  .app-container {
-    flex-direction: column !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* SIDEBAR -> BOTTOM NAVIGATION BAR */
-  .sidebar {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 60px !important;
-    flex-direction: row !important;
-    z-index: 999 !important;
-    border-right: none !important;
-    border-top: 1.5px solid var(--th-sidebar-border) !important;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
-    background: var(--th-sidebar) !important;
-    padding: 0 !important;
-  }
-
-  .sidebar-header, 
-  .profile-container, 
-  .menu-section-label, 
-  .logout-area, 
-  .menu-btn .menu-label {
-    display: none !important;
-  }
-
-  .menu-container {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-around !important;
-    align-items: center !important;
-    width: 100% !important;
-    padding: 0 10px !important;
-    margin: 0 !important;
-    overflow-y: visible !important;
-  }
-
-  .menu-btn {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 4px !important;
-    flex: 1 !important;
-    padding: 6px 0 !important;
-    height: 100% !important;
-    background: transparent !important;
-  }
-
-  .menu-btn.menu-active {
-    border-bottom: 3px solid var(--primary) !important;
-    color: var(--primary) !important;
-    background-color: transparent !important;
-  }
-
-  /* CONTENIDO PRINCIPAL */
-  .main-area {
-    width: 100% !important;
-    min-height: 100vh !important;
-    overflow: visible !important;
-    padding-bottom: 85px !important;
-  }
-
-  /* FORZAR COMPORTAMIENTO FLEX VERTICAL EN EL CONTENEDOR DE LA PÁGINA */
-  .page-content {
-    padding: 12px !important;
-    display: flex !important;
-    flex-direction: column !important;
-  }
-
-  /* TARJETAS KPI EN 2 COLUMNAS COMPACTAS */
-  .kpi-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    margin-bottom: 16px !important;
-    width: 100% !important;
-  }
-
-  .kpi-card {
-    padding: 10px 12px !important;
-    min-height: 85px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
-  }
-
-  /* ============================================================
-     🚀 SECCIÓN REOPTIMIZADA: .crm-search-bar MAESTRO 🚀
-     ============================================================ */
-  .crm-search-bar {
-    order: -1 !important; /* Mueve obligatoriamente la barra por encima de todo */
-    display: flex !important;
-    flex-direction: column !important; /* Los inputs ya no van uno al lado del otro, van en vertical */
-    gap: 12px !important; /* Separación perfecta entre elementos */
-    width: 100% !important;
-    max-width: 100% !important;
-    background: var(--th-card) !important;
-    border: 1px solid var(--th-card-border) !important;
-    border-radius: 10px !important;
-    padding: 14px !important;
-    margin: 0 0 16px 0 !important;
-    height: auto !important; /* Elimina cualquier restricción de altura */
-    box-sizing: border-box !important;
-  }
-
-  /* Hacer que los wrappers de los buscadores ocupen todo el ancho libre */
-  .crm-search-wrap, 
-  .crm-ciudad-wrap {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    position: relative !important; /* Permite posicionar iconos absolutos dentro */
-    display: flex !important;
-    align-items: center !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Forzar que los inputs se ensanchen al 100% sin romperse */
-  .crm-search-input {
-    width: 100% !important;
-    height: 44px !important; /* Altura ideal móvil táctil */
-    padding-left: 36px !important; /* Espacio para el icono izquierdo */
-    padding-right: 36px !important; /* Espacio para el botón de borrar derecho */
-    font-size: 14px !important;
-    border-radius: 8px !important;
-    border: 1px solid var(--th-sidebar-border) !important;
-    background: var(--th-input) !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
-  }
-
-  /* Fijar iconos internos a la izquierda */
-  .crm-search-icon,
-  .crm-ciudad-wrap > svg {
-    position: absolute !important;
-    left: 12px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 5 !important;
-    pointer-events: none !important;
-    margin: 0 !important;
-  }
-
-  /* Botón X para borrar filtro de ciudad */
-  .crm-clear-ciudad {
-    position: absolute !important;
-    right: 12px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    background: var(--th-profile-bg) !important;
-    border: none !important;
-    border-radius: 50% !important;
-    width: 22px !important;
-    height: 22px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 6 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /* Re-maquetación de los botones de vista e indicador de conteo */
-  .crm-view-toggle {
-    display: flex !important;
-    flex-direction: row !important;
-    gap: 8px !important;
-    width: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .crm-view-btn {
-    height: 38px !important;
-    width: 44px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 6px !important;
-    border: 1px solid var(--th-card-border) !important;
-    background: var(--th-card) !important;
-    margin: 0 !important;
-  }
-
-  /* Creamos una sección inferior integrada en la tarjeta para separar vistas y contador */
-  .crm-search-bar > .crm-view-toggle {
-    width: 100% !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    border-top: 1px dashed var(--th-sidebar-border) !important;
-    padding-top: 10px !important;
-    margin-top: 4px !important;
-  }
-
-  /* Contador de pacientes centrado o alineado a la derecha */
-  .crm-count {
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: var(--th-text) !important;
-    margin: 0 !important;
-    display: inline-block !important;
-  }
-}
- /* ==========================================================================
-   MÓDULO DE CITAS: OPTIMIZACIÓN RESPONSIVA (SPRINT 4)
-   ========================================================================== */
-@media (max-width: 768px) {
-  
-  /* 1. Forzar que los contenedores de la agenda se apilen verticalmente */
-  .agenda-container, 
-  .citas-grid, 
-  .cronograma-row,
-  .cita-item {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    width: 100% !important;
-    gap: 10px !important;
-  }
-
-  /* 2. Adaptar el bloque de fecha/filtros superior de las citas */
-  .agenda-header, 
-  .citas-filter-bar,
-  .appointments-controls {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    gap: 12px !important;
-  }
-
-  /* Inputs de fecha y selectores al 100% del ancho móvil */
-  .agenda-header input,
-  .agenda-header select,
-  .citas-filter-bar select,
-  .citas-filter-bar input {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 44px !important; /* Altura ergonómica para dedos */
-    box-sizing: border-box !important;
-  }
-
-  /* 3. Tarjetas de citas individuales */
-  .cita-card, 
-  .appointment-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 14px !important;
-    box-sizing: border-box !important;
-    border-left: 4px solid var(--color-blue, #0a76d8) !important; /* Resaltado visual en el lateral */
-  }
-
-  /* 4. Bloque de Horas e Información de la Cita */
-  .cita-hora, 
-  .cita-tiempo {
-    font-weight: 700 !important;
-    font-size: 14px !important;
-    background: var(--bg-secondary, #f4f7fc) !important;
-    padding: 6px 12px !important;
-    border-radius: 4px !important;
-    display: inline-block !important;
-    width: fit-content !important;
-  }
-
-  /* 5. Blindar la botonera de acciones (Modificar, Cancelar, Atender) */
-  .cita-acciones, 
-  .appointment-actions {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; /* Reacomodo inteligente */
-    gap: 8px !important;
-    width: 100% !important;
-    margin-top: 12px !important;
-    border-top: 1px dashed var(--border, #e0E0E0) !important;
-    padding-top: 10px !important;
-  }
-
-  /* Asegurar que los botones ocupen todo el espacio y tengan tamaño táctil */
-  .cita-acciones .btn, 
-  .appointment-actions .btn {
-    width: 100% !important;
-    height: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 13px !important;
-    padding: 0 8px !important;
-    margin: 0 !important;
-  }
-}
-
-/* ==========================================================================
-   REESTRUCTURACIÓN COMPLETA DE CITAS EN MÓVIL (MÁXIMA OPTIMIZACIÓN)
-   ========================================================================== */
-@media (max-width: 768px) {
-
-  /* 1. Desactivar Grillas rígidas o Columnas Flex de la agenda */
-  .agenda-container,
-  .citas-grid,
-  .appointments-grid,
-  .cronograma-container,
-  [class*="agenda"], 
-  [class*="cita"] {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    padding: 0 !important;
-    margin: 0 auto !important;
-    float: none !important;
-  }
-
-  /* 2. Si la agenda se estructuró con una TABLA HTML (Evita el aplastamiento de celdas) */
-  .agenda-table, 
-  .agenda-table thead, 
-  .agenda-table tbody, 
-  .agenda-table tr, 
-  .agenda-table td, 
-  .agenda-table th {
-    display: block !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-  }
-  
-  /* Ocultar encabezados de tabla horizontales en móvil */
-  .agenda-table thead {
-    display: none !important;
-  }
-
-  /* 3. Optimización de Filas de Horas / Bloques de Citas */
-  .cronograma-row,
-  .cita-row,
-  .appointment-row,
-  .cita-item {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    background: var(--bg-surface, #ffffff) !important;
-    border: 1px solid var(--border, #e0e0e0) !important;
-    border-radius: 8px !important;
-    padding: 12px !important;
-    margin-bottom: 12px !important;
-    width: 100% !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
-  }
-
-  /* 4. Evitar el solapamiento y corte de textos (Nombres, Teléfonos, etc.) */
-  .cita-info, 
-  .cita-detalles, 
-  .patient-info,
-  .cita-item > div {
-    width: 100% !important;
-    max-width: 100% !important;
-    white-space: normal !important; /* Permite que el texto salte de línea si es largo */
-    word-break: break-word !important;
-    padding: 4px 0 !important;
-    text-align: left !important;
-  }
-
-  /* Destacar la hora como una etiqueta arriba */
-  .cita-hora, 
-  .time-slot,
-  .cronograma-row > div:first-child {
-    font-weight: bold !important;
-    color: var(--color-blue, #0a76d8) !important;
-    font-size: 15px !important;
-    background: var(--bg-secondary, #f4f7fc) !important;
-    padding: 6px 12px !important;
-    border-radius: 6px !important;
-    width: fit-content !important;
+    max-width: 260px !important;
     margin-bottom: 8px !important;
-    text-align: center !important;
+    box-sizing: border-box !important;
   }
-
-  /* 5. Ajuste de Controles superiores (Buscadores de fecha / Filtros) */
-  .agenda-header,
-  .appointments-controls,
-  .filter-bar {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
+  .search-items .form-label {
     width: 100% !important;
-    padding: 10px !important;
+    margin-bottom: 4px !important;
   }
-
-  .agenda-header input,
-  .agenda-header select,
-  .filter-bar button {
+  .search-items .btn {
+    width: auto !important;
+    margin-top: 4px !important;
+    flex-shrink: 1;
+  }
+  .search-items > div {
     width: 100% !important;
-    height: 44px !important; /* Tamaño perfecto para pulsar con el dedo */
-    margin: 0 !important;
+    max-width: 100% !important;
+    flex: 1 1 auto !important;
   }
-
-  /* 6. Botonera de Acciones (Atender, Modificar, Cancelar) */
-  .cita-acciones, 
-  .appointment-actions,
-  .cita-item button,
-  .cita-row .actions {
-    display: grid !important;
-    grid-template-columns: 1fr !important; /* Un botón debajo de otro en pantallas muy chicas */
+  .search-items {
+    flex-wrap: wrap !important;
     gap: 8px !important;
-    width: 100% !important;
-    margin-top: 8px !important;
-    padding-top: 8px !important;
-    border-top: 1px dashed var(--border, #e0e0e0) !important;
-  }
-
-  /* Ajustar botones internos */
-  .cita-acciones .btn,
-  .appointment-actions button,
-  .actions .btn {
-    width: 100% !important;
-    height: 42px !important;
-    font-size: 14px !important;
-    margin: 0 !important;
   }
 }
 
 /* ============================================================
-   Ajuste definitivo para el Módulo de Citas en Pantallas Móviles
+   SEMANA MODULE STYLES
    ============================================================ */
+#semana-contenedor {
+  width: 100%;
+  min-height: 400px;
+  padding: 16px;
+  background: var(--th-card);
+  border: 1px solid var(--th-card-border);
+  border-radius: 8px;
+}
+
+.semana-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--th-divider);
+}
+
+.semana-mes-titulo {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--th-text);
+  min-width: 120px;
+  text-align: center;
+}
+
+.semana-grid-dias-header,
+.semana-mes-grid,
+.semana-grid-dias {
+  display: grid;
+  gap: 8px;
+}
+
+.semana-grid-dias-header {
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 500;
+  color: var(--th-text2);
+  margin-bottom: 12px;
+}
+
+.semana-mes-grid {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.semana-grid-dias {
+  grid-template-columns: repeat(7, 1fr);
+  margin-top: 12px;
+}
+
+.semana-dia-cell,
+.semana-dia-card {
+  aspect-ratio: 1;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.semana-dia-cell:hover,
+.semana-dia-card:hover {
+  background: var(--th-bg3);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.semana-dia-cell.domingo,
+.semana-dia-card.domingo {
+  opacity: 0.7;
+}
+
+.semana-dia-num {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.semana-volver-mes {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+.semana-fade-out {
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+/* Responsive adjustments for semana module */
 @media (max-width: 768px) {
-
-  /* 1. Forzar que el contenedor principal de citas no se desborde */
-  .appointments-section,
-  .appointments-container,
-  .agenda-container,
-  .citas-container,
-  .main-content {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
-    padding: 10px !important;
+  #semana-contenedor {
+    padding: 12px;
+    min-height: 300px;
   }
 
-  /* 2. Si el módulo usa una tabla HTML nativa, la convertimos en tarjetas apiladas */
-  .appointments-table, 
-  .appointments-table tbody, 
-  .appointments-table tr, 
-  .appointments-table td {
-    display: block !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+  .semana-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .appointments-table tr {
-    margin-bottom: 15px !important;
-    border: 1px solid var(--th-card-border, #ebebeb) !important;
-    border-radius: 8px !important;
-    background: var(--th-card, #ffffff) !important;
-    padding: 12px !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+  .semana-mes-titulo {
+    margin-bottom: 8px;
   }
 
-  .appointments-table td {
-    text-align: left !important;
-    padding: 6px 0 !important;
-    border: none !important;
+  .semana-grid-dias-header,
+  .semana-mes-grid,
+  .semana-grid-dias {
+    gap: 6px;
   }
 
-  /* 3. Transformar filas flex/grid (.cita-row o .cita-item) en bloques verticales */
-  .cita-row,
-  .cita-item,
-  .appointment-card {
-    display: flex !important;
-    flex-direction: column !important; /* Todo un elemento debajo de otro */
-    align-items: flex-start !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important; /* Evita que flex empuje los bordes del móvil */
-    padding: 14px !important;
-    margin-bottom: 12px !important;
-    border-radius: 8px !important;
-    box-sizing: border-box !important;
+  .semana-dia-cell,
+  .semana-dia-card {
+    min-height: 50px;
+    padding: 6px;
+    font-size: 12px;
   }
 
-  /* 4. Romper textos largos (nombres, notas, correos) para que no deformen la pantalla */
-  .cita-info, 
-  .cita-detalles, 
-  .patient-info,
-  .cita-item > div,
-  .appointment-detail,
-  .cita-row > div {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    white-space: normal !important; /* Permite salto de línea */
-    word-break: break-word !important; /* Corta palabras si es necesario */
-    overflow-wrap: break-word !important;
-    padding: 4px 0 !important;
-    text-align: left !important;
-    display: block !important;
+  .semana-dia-num {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  #semana-contenedor {
+    padding: 8px;
+    min-height: 250px;
   }
 
-  /* 5. Alinear la etiqueta de la hora para que quede arriba de la tarjeta */
-  .cita-hora, 
-  .time-slot,
-  .cronograma-row > div:first-child {
-    width: auto !important;
-    max-width: fit-content !important;
-    margin-bottom: 10px !important;
-    display: inline-block !important;
+  .semana-dia-cell,
+  .semana-dia-card {
+    min-height: 40px;
+    padding: 4px;
+    font-size: 11px;
   }
 
-  /* 6. Botoneras de acciones (Atender, Modificar, Cancelar) apiladas verticalmente */
-  .cita-acciones, 
-  .appointment-actions,
-  .cita-item button,
-  .cita-row .actions,
-  .actions {
-    display: flex !important;
-    flex-direction: column !important; /* Un botón arriba del otro */
-    gap: 8px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-top: 10px !important;
-    padding-top: 10px !important;
-    border-top: 1px dashed var(--th-divider, #ebebeb) !important;
-  }
-
-  /* 7. Forzar que los botones ocupen todo el ancho táctil */
-  .cita-acciones .btn,
-  .appointment-actions button,
-  .actions .btn,
-  .cita-item button {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 44px !important; /* Tamaño idóneo para pulsar con el dedo */
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  .semana-dia-num {
+    font-size: 12px;
   }
 }

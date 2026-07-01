@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main:       resolve(__dirname, 'index.html'),
           dashboard:  resolve(__dirname, 'src/pages/admin/dashboard.html'),
+          sedes:      resolve(__dirname, 'src/pages/admin/sedes.html'),
           usuarios:   resolve(__dirname, 'src/pages/admin/usuarios.html'),
           informes:   resolve(__dirname, 'src/pages/admin/informes.html'),
           secretaria: resolve(__dirname, 'src/pages/secretaria/index.html'),

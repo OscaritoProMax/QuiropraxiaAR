@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quiromasajes — Gestión de Usuarios</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
 
@@ -63,64 +64,64 @@
     .btn-google-reauth:hover { background: #f8f9fa; }
     .btn-google-reauth svg { flex-shrink: 0; }
 
-    /* ── Logout fijo inferior en usuarios ── */
-    .logout-bottom {
-      position: fixed; bottom: 0; left: 0;
-      width: 220px;
-      padding: 12px 16px;
-      background: var(--sidebar-bg, #1a2035);
-      border-top: 1px solid rgba(255,255,255,0.08);
-      z-index: 100;
-    }
-    .logout-bottom button {
-      display: flex; align-items: center; gap: 8px;
-      width: 100%; padding: 9px 12px;
-      background: transparent; border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 7px; color: #e2e8f0;
-      font-size: 13px; cursor: pointer; transition: background 0.15s;
-    }
-    .logout-bottom button:hover { background: rgba(255,255,255,0.08); }
+    /* ── Botón "volver al dashboard" — solo móvil ── */
+    .btn-back-mobile { display: none; }
 
     /* ── Responsivo móvil ── */
     @media (max-width: 768px) {
-      /* Sidebar colapsado en móvil */
-      .sidebar { width: 0; overflow: hidden; transition: width 0.25s; position: fixed; z-index: 200; height: 100vh; }
-      .sidebar.open { width: 220px; }
+      /* El sidebar de escritorio no cabe en móvil: se reemplaza por
+         el botón de volver en el topbar (igual que informes.html). */
+      .sidebar { display: none !important; }
       .main-area { margin-left: 0 !important; width: 100% !important; }
 
-      /* Botón hamburguesa */
-      .menu-toggle {
+      .topbar {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 12px 14px !important;
+        flex-wrap: wrap;
+      }
+      .btn-back-mobile {
         display: flex; align-items: center; justify-content: center;
-        position: fixed; top: 12px; left: 12px; z-index: 201;
-        width: 38px; height: 38px; border-radius: 8px;
-        background: var(--sidebar-bg, #1a2035);
-        border: none; cursor: pointer; color: #fff;
+        width: 34px; height: 34px; flex-shrink: 0;
+        background: var(--th-bg3); border: 1px solid var(--th-card-border);
+        border-radius: 50%; color: var(--th-text2); cursor: pointer; padding: 0;
       }
+      .btn-back-mobile:active { background: var(--th-row-hover); }
+      .topbar-left { flex: 1; min-width: 0; }
+      .topbar-title { font-size: 16px !important; }
+      .topbar-right { width: 100%; }
+      .topbar-right .btn { width: 100%; justify-content: center; }
 
-      /* Overlay oscuro detrás del sidebar en móvil */
-      .sidebar-overlay {
-        display: none; position: fixed; inset: 0;
-        background: rgba(0,0,0,0.5); z-index: 199;
+      /* Tabla → tarjetas apiladas (igual lenguaje visual que el resto
+         de la app en móvil: una fila se convierte en una tarjeta) */
+      .card { padding: 10px !important; border: none !important; background: transparent !important; }
+      .table-wrap { overflow: visible; background: transparent; border: none; }
+      table, tbody { display: block; width: 100%; }
+      thead { display: none; }
+      tbody tr {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        background: var(--th-card);
+        border: 1px solid var(--th-card-border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
       }
-      .sidebar-overlay.visible { display: block; }
+      tbody tr td { border-top: none; padding: 0; }
+      tbody tr td:nth-child(1) { order: 1; }
+      tbody tr td:nth-child(2) { order: 2; flex: 1 1 auto; min-width: 0; }
+      tbody tr td:nth-child(3) { order: 3; }
+      tbody tr td:nth-child(4) { order: 4; }
+      tbody tr td:nth-child(5) { order: 5; flex: 0 0 100%; }
 
-      /* Tabla responsiva */
-      .usr-acciones { flex-direction: column; gap: 4px; }
-      .usr-acciones .btn { width: 100%; justify-content: center; }
-
-      /* Topbar en móvil */
-      .topbar { padding-left: 60px; }
-
-      /* logout ocupa ancho completo en móvil */
-      .logout-bottom { width: 220px; }
+      .usr-acciones { flex-direction: column; gap: 6px; margin-top: 4px; }
+      .usr-acciones .btn { width: 100%; justify-content: center; min-height: 38px; }
 
       /* Modales en móvil */
       .modal-box { margin: 12px; max-width: calc(100vw - 24px) !important; }
-    }
-
-    @media (min-width: 769px) {
-      .menu-toggle { display: none; }
-      .sidebar-overlay { display: none !important; }
     }
   </style>
 </head>
@@ -172,6 +173,9 @@
 
     <!-- Topbar -->
     <header class="topbar">
+      <button class="btn-back-mobile" id="btn-back-mobile" title="Volver al dashboard">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
       <div class="topbar-left">
         <h1 class="topbar-title">Gestión de usuarios</h1>
         <p class="topbar-sub">Control de acceso · Solo Administrador</p>
@@ -336,19 +340,8 @@
   initUsuarios();
 </script>
 <script>
-  // Hamburguesa móvil
-  const sidebar  = document.querySelector('.sidebar');
-  const overlay  = document.getElementById('sidebar-overlay');
-  const toggle   = document.getElementById('menu-toggle');
-
-  toggle?.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('visible');
-  });
-  overlay?.addEventListener('click', () => {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('visible');
-  });
+  document.getElementById('btn-back-mobile')?.addEventListener('click', () =>
+    window.location.href = './dashboard.html');
 </script>
 
 </body>

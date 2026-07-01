@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quiromasajes — Dashboard</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/pacientes.css">
@@ -39,8 +40,35 @@
     background: #fff;
   }
   </style>
+  <style>
+    #splash-screen {
+      position: fixed;
+      z-index: 99999;
+      inset: 0;
+      background: var(--th-bg, #ffffff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.7s ease;
+      pointer-events: none;
+    }
+    #splash-screen img {
+      max-width: 280px;
+      max-height: 280px;
+      object-fit: contain;
+      animation: splash-pop 0.5s cubic-bezier(.22,.68,0,1.2);
+    }
+    @keyframes splash-pop {
+      from { opacity: 0; transform: scale(0.85); }
+      to   { opacity: 1; transform: scale(1);    }
+    }
+  </style>
 </head>
 <body>
+
+<div id="splash-screen">
+  <img src="../../../img/fff.png" alt="">
+</div>
 
 <div class="app-container">
 
@@ -120,6 +148,20 @@
           </svg>
         </span>
         <span class="menu-label">Cronograma</span>
+      </button>
+
+      <button class="menu-btn" data-view="semana">
+        <span class="menu-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+          </svg>
+        </span>
+        <span class="menu-label">Semana</span>
       </button>
 
       <div class="menu-section-label">Finanzas</div>
@@ -414,6 +456,7 @@
         <div id="slots-container" class="slots-wrap">
           <div class="empty-state">Selecciona una fecha para ver la agenda</div>
         </div>
+        <div id="panel-paciente-cita"></div>
       </section>
 
       <!-- ════ CRONOGRAMA ════ -->
@@ -423,6 +466,11 @@
           <button class="btn btn-gray btn-sm" id="btn-refresh-crono">Actualizar</button>
         </div>
         <div id="cronograma-container"></div>
+      </section>
+
+      <!-- ════ SEMANA — calendario mensual con ocupación + drill-down ════ -->
+      <section id="view-semana" class="view-section">
+        <div id="semana-contenedor"></div>
       </section>
 
       <!-- ════ USUARIOS ════ -->
@@ -514,27 +562,33 @@
           <!-- Horario de trabajo -->
           <div class="config-section">
             <h3 class="config-section-title">Horario de trabajo</h3>
+            <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+              Define a qué hora inicia y termina tu jornada de atención. Con esto se
+              generan los horarios disponibles para agendar citas (cada 20 minutos).
+            </p>
             <div class="form-row-2col">
               <div class="form-group">
                 <label class="form-label">Hora inicio</label>
-                <input class="input-text" type="time" id="cfg-hora-inicio" value="08:00"/>
+                <input class="input-text" type="time" id="cfg-hora-inicio" value="09:00"/>
               </div>
               <div class="form-group">
                 <label class="form-label">Hora fin</label>
                 <input class="input-text" type="time" id="cfg-hora-fin" value="18:00"/>
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Duracion de sesion (minutos)</label>
-              <select class="input-text" id="cfg-duracion">
-                <option value="30">30 minutos</option>
-                <option value="60" selected>60 minutos</option>
-                <option value="90">90 minutos</option>
-              </select>
-            </div>
             <button class="btn btn-primary" id="btn-guardar-cfg-horario">
               Guardar horario
             </button>
+          </div>
+
+          <!-- Sedes / Viajes -->
+          <div class="config-section">
+            <h3 class="config-section-title">Sedes y viajes</h3>
+            <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+              Programa viajes a otras ciudades. Las fechas del viaje bloquean la
+              sede local y las citas afectadas quedan pendientes por reprogramar.
+            </p>
+            <a class="btn btn-primary" href="./sedes.html">Gestionar sedes</a>
           </div>
 
           <!-- Notificaciones -->
@@ -620,11 +674,8 @@
         </div>
       </section>
 
-    </div><!-- /page-content -->
-
       <!-- FINANZAS -->
       <section id="view-finanzas" class="view-section">
-        <div class="view-body">
 
           <!-- KPIs compactos — mismo grid del dashboard -->
           <div class="kpi-grid" style="margin-bottom:20px">
@@ -679,6 +730,15 @@
 
           </div>
 
+          <!-- Cobros pendientes de confirmación (enviados por secretaria) -->
+          <div class="card" style="margin-bottom:20px" id="fin-card-pendientes">
+            <h3 style="margin:0 0 12px;font-size:15px;font-weight:600;color:#946a00">
+              ⏳ Pendientes por confirmar
+            </h3>
+            <div id="alert-fin-pendientes" style="margin-bottom:10px"></div>
+            <div id="fin-tabla-pendientes"><div class="empty-state">Cargando...</div></div>
+          </div>
+
           <!-- Desprendible del día -->
           <div class="card" style="margin-bottom:20px" id="fin-card-desprendible">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -691,7 +751,9 @@
                 Imprimir / PDF
               </button>
             </div>
-            <div id="fin-tabla-dia"><div class="empty-state">Cargando sesiones del día...</div></div>
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+              <div id="fin-tabla-dia"><div class="empty-state">Cargando sesiones del día...</div></div>
+            </div>
           </div>
 
           <!-- Canceladas anti-fraude -->
@@ -699,11 +761,14 @@
             <h3 style="margin:0 0 12px;font-size:15px;font-weight:600;color:#c0392b">
               ⚠ Citas canceladas hoy
             </h3>
-            <div id="fin-tabla-canceladas"><div class="empty-state">Cargando...</div></div>
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+              <div id="fin-tabla-canceladas"><div class="empty-state">Cargando...</div></div>
+            </div>
           </div>
 
-        </div>
       </section>
+
+    </div><!-- /page-content -->
 
   </div><!-- /main-area -->
 </div><!-- /app-container -->
@@ -724,7 +789,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Telefono celular <span>*</span></label>
-        <input class="input-text" id="p-tel" placeholder="+57 300 000 0000" type="tel"/>
+        <input class="input-text" id="p-tel" placeholder="3001234567" type="tel" maxlength="10" minlength="10" pattern="[0-9]{10}"/>
       </div>
     </div>
     <div class="form-row-2col">
@@ -796,6 +861,24 @@
       <input type="hidden" id="c-paciente-id"/>
       <input type="hidden" id="c-paciente-nombre"/>
       <input type="hidden" id="c-paciente-ciudad"/>
+    </div>
+
+    <!-- Ciudad de origen — aparece solo al seleccionar paciente existente -->
+    <div id="cita-ciudad-wrap" style="display:none;margin-bottom:16px">
+      <div style="background:var(--primary-soft);border:1px solid rgba(10,118,216,.2);border-radius:10px;padding:12px 14px">
+        <label class="form-label" style="margin-bottom:8px">
+          Ciudad de origen
+          <span style="font-weight:400;color:var(--text-muted);font-size:11px"> — confirma o actualiza si cambió</span>
+        </label>
+        <div class="origen-selects">
+          <select class="input-text" id="cita-dpto">
+            <option value="">Departamento...</option>
+          </select>
+          <select class="input-text" id="cita-ciudad-sel" disabled>
+            <option value="">Ciudad...</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="quick-register" id="quick-register">
@@ -943,19 +1026,22 @@
   import { initConfiguracion } from '../../modules/dashboard/configuracion.js';
 
   // 1. EJECUTAR EL ESCUDO DE PROTECCIÓN ANTES DE INICIALIZAR NADA
-  protegerPagina(ROLES.ADMINISTRADOR).then((usuario) => {
-    // Si la promesa se resuelve con éxito, significa que el usuario inició sesión correctamente y es Administrador.
-    
-    // 2. Inicializar los submódulos de forma segura
-    initDashboard();
-    initConfiguracion();
-    iniciarVigilanteInactividad(); // Tu control de inactividad de 10 minutos
-    
-    // 🔥 NUEVO: Activar el detector de inicio de sesión duplicado
-    iniciarVigilanteConcurrencia(usuario); 
-
-    // 3. DESTRUIR EL BLOQUEO VISUAL: Revela la interfaz limpiamente
+  protegerPagina(ROLES.ADMINISTRADOR).then(async (usuario) => {
+    // 2. Revelar el body (el splash cubre mientras cargan los datos)
     document.getElementById('security-guard')?.remove();
+
+    // 3. Inicializar módulos (awaiting dashboard para que el splash cubra la carga)
+    await initDashboard();
+    initConfiguracion();
+    iniciarVigilanteInactividad();
+    iniciarVigilanteConcurrencia(usuario);
+
+    // 4. Fade-out del splash al terminar de cargar
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 750);
+    }
   });
 </script>
 

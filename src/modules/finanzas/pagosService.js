@@ -4,11 +4,51 @@
 
 import {
   collection, addDoc, getDocs, query,
-  where, serverTimestamp
+  where, serverTimestamp, doc, getDoc, setDoc
 } from 'firebase/firestore';
 import { db } from '../../core/firebase.js';
 
-export const TARIFA_BASE = 50000; // COP — tarifa estándar por sesión
+export const TARIFA_BASE = 50000; // COP — valor de respaldo si no hay configuración guardada
+
+// Caché en memoria de la tarifa configurada, para uso síncrono en formularios.
+// Se actualiza al cargar la app (obtenerConfiguracion) y al guardar (guardarConfiguracion).
+let _tarifaBaseActual = TARIFA_BASE;
+
+export function obtenerTarifaBaseActual() {
+  return _tarifaBaseActual;
+}
+
+// ── Configuración general (tarifa base, meta diaria) ──────
+export async function obtenerConfiguracion() {
+  try {
+    const snap = await getDoc(doc(db, 'configuracion', 'general'));
+    const data = snap.exists() ? snap.data() : {};
+    const tarifaBase = data.tarifaBase || TARIFA_BASE;
+    _tarifaBaseActual = tarifaBase;
+    return {
+      tarifaBase,
+      metaDia:    data.metaDia    || 600000,
+      horaInicio: data.horaInicio || '09:00',
+      horaFin:    data.horaFin    || '18:00',
+    };
+  } catch (error) {
+    console.error('Error obteniendo configuración:', error);
+    return { tarifaBase: TARIFA_BASE, metaDia: 600000, horaInicio: '09:00', horaFin: '18:00' };
+  }
+}
+
+// Guarda solo los campos provistos (merge). Acepta cualquier combinación
+// de { tarifaBase, metaDia, horaInicio, horaFin }.
+export async function guardarConfiguracion(cambios = {}) {
+  try {
+    await setDoc(doc(db, 'configuracion', 'general'), cambios, { merge: true });
+    if (typeof cambios.tarifaBase === 'number') _tarifaBaseActual = cambios.tarifaBase;
+    return { ok: true };
+  } catch (error) {
+    console.error('Error guardando configuración:', error);
+    return { ok: false, error: 'No se pudo guardar la configuración.' };
+  }
+}
 
 // ── Registrar un pago al completar cita ───────────────────
 export async function registrarPago(datos) {

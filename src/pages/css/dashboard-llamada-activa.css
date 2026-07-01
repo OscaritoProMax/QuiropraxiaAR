@@ -1,0 +1,983 @@
+/* ============================================================
+   dashboard-llamada-activa.css
+   Panel de búsqueda rápida para agente EN LLAMADA
+   ============================================================ */
+
+/* ══════════════════════════════════════════════════════════
+   PANEL LATERAL DE BÚSQUEDA RÁPIDA
+══════════════════════════════════════════════════════════ */
+
+.quick-search-panel {
+  position: fixed;
+  right: -100%;
+  top: 0;
+  width: 480px;
+  max-width: 92vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-left: 1px solid #ebebeb;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+  transition: right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1001;
+  overflow: hidden;            /* el desplazamiento vertical vive en cada pantalla */
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme="dark"] .quick-search-panel {
+  background: linear-gradient(135deg, #161b27 0%, #0d1117 100%);
+  border-left-color: #1e2535;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.quick-search-panel.active {
+  right: 0;
+}
+
+/* ── Track horizontal de dos pantallas (búsqueda ↔ cliente) ── */
+.qsp-track {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 200%;
+  transform: translateX(0);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-search-panel.view-client .qsp-track {
+  transform: translateX(-50%);
+}
+
+.qsp-screen {
+  flex: 0 0 50%;
+  width: 50%;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  /* A pantalla completa: el panel toma todo el alto y ancho disponibles
+     (cubre la barra de navegación inferior; se cierra con × o ←). */
+  .quick-search-panel {
+    width: 100%;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh; /* respeta la barra del navegador en móvil */
+    z-index: 1100;  /* por encima de la barra inferior fija */
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   HEADER DEL PANEL
+══════════════════════════════════════════════════════════ */
+
+.search-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #ebebeb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+[data-theme="dark"] .search-header {
+  background: #161b27;
+  border-bottom-color: #1e2535;
+}
+
+.search-header h3 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #161c2d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .search-header h3 {
+  color: #cbd5e1;
+}
+
+/* Botón "volver" — solo visible en la pantalla del cliente */
+.qsp-back {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #8492a6;
+  padding: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.qsp-back:hover {
+  color: #0A76D8;
+  background: rgba(10, 118, 216, 0.08);
+}
+
+.quick-search-panel.view-client .qsp-back {
+  display: flex;
+}
+
+/* En la pantalla del cliente el título se muestra normal (nombre), no en
+   mayúsculas forzadas para que sea más legible. */
+.quick-search-panel.view-client .search-header h3 {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
+}
+
+.btn-close-search {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #8492a6;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-close-search:hover {
+  color: #161c2d;
+  transform: rotate(90deg);
+}
+
+/* ══════════════════════════════════════════════════════════
+   INPUT DE BÚSQUEDA RÁPIDA
+══════════════════════════════════════════════════════════ */
+
+.search-input-group {
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #ebebeb;
+  background: white;
+}
+
+[data-theme="dark"] .search-input-group {
+  background: #1e2535;
+  border-bottom-color: #2a3f5f;
+}
+
+.quick-search-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+  color: #161c2d;
+}
+
+[data-theme="dark"] .quick-search-input {
+  background: #0d1117;
+  border-color: #2a3f5f;
+  color: #cbd5e1;
+}
+
+.quick-search-input:focus {
+  outline: none;
+  border-color: #0A76D8;
+  box-shadow: 0 0 0 3px rgba(10, 118, 216, 0.1);
+}
+
+.quick-search-input::placeholder {
+  color: #adb5bd;
+}
+
+.btn-search {
+  padding: 10px 12px;
+  background: #0A76D8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-search:hover {
+  background: #0056a3;
+  transform: scale(1.05);
+}
+
+.btn-search:active {
+  transform: scale(0.98);
+}
+
+/* ══════════════════════════════════════════════════════════
+   ESTADO VACÍO
+══════════════════════════════════════════════════════════ */
+
+.no-client-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8492a6;
+  text-align: center;
+  padding: 40px 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.empty-illustration {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.no-client-state p {
+  margin: 0;
+  font-size: 13px;
+  color: #adb5bd;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INFORMACIÓN DEL CLIENTE
+══════════════════════════════════════════════════════════ */
+
+.client-info-panel {
+  padding: 16px;
+}
+
+.client-header {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, #e8f4f8 0%, #f0f8fc 100%);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  border-left: 3px solid #0A76D8;
+}
+
+[data-theme="dark"] .client-header {
+  background: rgba(10, 118, 216, 0.1);
+}
+
+.client-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0A76D8 0%, #0056a3 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  font-weight: bold;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(10, 118, 216, 0.2);
+}
+
+.client-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-header-info h2 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #161c2d;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+[data-theme="dark"] .client-header-info h2 {
+  color: #e2e8f0;
+}
+
+.client-header-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #0A76D8;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIONES DE CONTENIDO
+══════════════════════════════════════════════════════════ */
+
+.section-available-citas,
+.section-history-citas,
+.section-quick-booking {
+  margin-bottom: 14px;
+  padding: 14px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #ebebeb;
+}
+
+[data-theme="dark"] .section-available-citas,
+[data-theme="dark"] .section-history-citas,
+[data-theme="dark"] .section-quick-booking {
+  background: #1e2535;
+  border-color: #2a3f5f;
+}
+
+.section-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #161c2d;
+  margin-bottom: 10px;
+}
+
+[data-theme="dark"] .section-title {
+  color: #cbd5e1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SLOTS DISPONIBLES EN BÚSQUEDA
+══════════════════════════════════════════════════════════ */
+
+/* Selector de fecha del panel (hoy / mañana / cualquier día) */
+.qsp-fecha-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.qsp-fecha-row #quick-book-fecha {
+  flex: 1;
+  min-width: 130px;
+}
+
+.qsp-fecha-btn {
+  padding: 6px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #f8f9fa;
+  color: #161c2d;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qsp-fecha-btn:hover {
+  background: #0A76D8;
+  border-color: #0A76D8;
+  color: white;
+}
+
+[data-theme="dark"] .qsp-fecha-btn {
+  background: #0d1117;
+  border-color: #2a3f5f;
+  color: #cbd5e1;
+}
+
+.available-slots-search {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+/* Cuando hay una hora elegida, las demás se ocultan y la elegida ocupa
+   todo el ancho para que quede claro cuál se seleccionó. */
+.available-slots-search.has-selection .time-slot-search:not(.selected) {
+  display: none;
+}
+
+.available-slots-search.has-selection {
+  grid-template-columns: 1fr;
+}
+
+.time-slot-search {
+  padding: 12px 8px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: slideIn 0.3s ease-out both;
+}
+
+[data-theme="dark"] .time-slot-search {
+  background: #0d1117;
+  border-color: #2a3f5f;
+}
+
+.time-slot-search:nth-child(1) { animation-delay: 0.05s; }
+.time-slot-search:nth-child(2) { animation-delay: 0.1s; }
+.time-slot-search:nth-child(3) { animation-delay: 0.15s; }
+.time-slot-search:nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.time-slot-search:hover {
+  background: #0A76D8;
+  color: white;
+  border-color: #0A76D8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 118, 216, 0.3);
+}
+
+.time-slot-search.selected {
+  background: #0A76D8;
+  color: white;
+  border-color: #0A76D8;
+  box-shadow: 0 0 0 2px rgba(10, 118, 216, 0.2);
+}
+
+.slot-time-search {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.slot-therapist-search {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.loading-dots {
+  text-align: center;
+  font-size: 12px;
+  color: #8492a6;
+  padding: 12px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   HISTORIAL DE CITAS
+══════════════════════════════════════════════════════════ */
+
+.history-citas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.cita-history-item {
+  padding: 9px 10px;
+  background: #fef3f2;
+  border-left: 2px solid #f97316;
+  border-radius: 4px;
+  font-size: 12px;
+  animation: slideIn 0.2s ease-out;
+}
+
+[data-theme="dark"] .cita-history-item {
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.cita-date {
+  font-weight: 600;
+  color: #f97316;
+  display: block;
+}
+
+.cita-service {
+  color: #8492a6;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   FORMULARIO DE AGENDAMIENTO RÁPIDO
+══════════════════════════════════════════════════════════ */
+
+.quick-booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-small {
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: white;
+  color: #161c2d;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .input-small {
+  background: #0d1117;
+  border-color: #2a3f5f;
+  color: #cbd5e1;
+}
+
+.input-small:focus {
+  outline: none;
+  border-color: #0A76D8;
+  box-shadow: 0 0 0 3px rgba(10, 118, 216, 0.1);
+}
+
+.input-small:disabled {
+  background: #f0f0f0;
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .input-small:disabled {
+  background: #0d1117;
+  color: #64748b;
+}
+
+.btn-quick-book {
+  padding: 12px;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-quick-book:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}
+
+.btn-quick-book:active {
+  transform: translateY(0);
+}
+
+.btn-quick-book:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   NOTAS RÁPIDAS
+══════════════════════════════════════════════════════════ */
+
+.quick-notes {
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #ebebeb;
+  margin-bottom: 20px;
+}
+
+[data-theme="dark"] .quick-notes {
+  background: #1e2535;
+  border-color: #2a3f5f;
+}
+
+.quick-notes textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  background: white;
+  color: #161c2d;
+}
+
+[data-theme="dark"] .quick-notes textarea {
+  background: #0d1117;
+  border-color: #2a3f5f;
+  color: #cbd5e1;
+}
+
+.quick-notes textarea:focus {
+  outline: none;
+  border-color: #0A76D8;
+  box-shadow: 0 0 0 3px rgba(10, 118, 216, 0.1);
+}
+
+/* ══════════════════════════════════════════════════════════
+   BOTÓN FLOTANTE PARA ABRIR PANEL
+══════════════════════════════════════════════════════════ */
+
+.btn-floating-search {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--primary, #0A76D8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(10, 118, 216, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 1002;
+}
+
+.btn-floating-search .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-floating-search:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(10, 118, 216, 0.35);
+}
+
+.btn-floating-search:active {
+  transform: scale(0.96);
+}
+
+/* Cuando el panel está abierto, ocultamos los botones flotantes para que
+   no se superpongan al contenido (sobre todo en móvil a pantalla completa). */
+.quick-search-panel.active ~ .btn-floating-search,
+.quick-search-panel.active ~ .btn-floating-reporte {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Botón flotante del resumen para informe ──
+   Se ubica justo encima del botón de teléfono y es un poco más pequeño. */
+.btn-floating-reporte {
+  position: fixed;
+  bottom: 94px;   /* 30 (botón teléfono) + 54 (su alto) + 10 de separación */
+  right: 33px;    /* centrado respecto al de 54px (33 + 24 = 57 ≈ 30 + 54/2) */
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary, #0A76D8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(10, 118, 216, 0.25);
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 1002;
+}
+
+.btn-floating-reporte .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-floating-reporte:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(10, 118, 216, 0.35);
+}
+
+.btn-floating-reporte:active {
+  transform: scale(0.96);
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIÓN DE CITAS DE HOY EN DASHBOARD
+══════════════════════════════════════════════════════════ */
+
+.today-appointments-section {
+  margin-top: 30px;
+  padding: 0 20px;
+}
+
+.section-header {
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #161c2d;
+}
+
+[data-theme="dark"] .section-header h2 {
+  color: #e2e8f0;
+}
+
+.appointments-timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.appointment-card-main {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 3px solid #0A76D8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  animation: slideIn 0.4s ease-out both;
+}
+
+[data-theme="dark"] .appointment-card-main {
+  background: #161b27;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.appointment-card-main:nth-child(1) { animation-delay: 0.1s; }
+.appointment-card-main:nth-child(2) { animation-delay: 0.15s; }
+.appointment-card-main:nth-child(3) { animation-delay: 0.2s; }
+
+.appointment-card-main:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(10, 118, 216, 0.12);
+}
+
+.appt-time-main {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A76D8;
+  margin-bottom: 4px;
+}
+
+.appt-patient-main {
+  font-size: 12px;
+  font-weight: 600;
+  color: #161c2d;
+  margin-bottom: 4px;
+}
+
+[data-theme="dark"] .appt-patient-main {
+  color: #cbd5e1;
+}
+
+.appt-service-main {
+  font-size: 11px;
+  color: #8492a6;
+  margin-bottom: 6px;
+}
+
+.appt-therapist-main {
+  font-size: 10px;
+  color: #adb5bd;
+  padding-top: 6px;
+  border-top: 1px solid #ebebeb;
+}
+
+[data-theme="dark"] .appt-therapist-main {
+  border-top-color: #2a3f5f;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 40px;
+  color: #8492a6;
+  font-size: 14px;
+}
+
+.loading-spinner::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid #0A76D8;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .appointments-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  /* La barra de navegación inferior fija mide 60px — los botones flotantes
+     deben quedar por encima de ella, no debajo ni tapados. */
+  .btn-floating-search {
+    bottom: 76px;
+    right: 16px;
+    width: 50px;
+    height: 50px;
+  }
+
+  .btn-floating-reporte {
+    bottom: 134px;  /* 76 (botón teléfono) + 50 (su alto) + 8 de separación */
+    right: 18px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-booking-form {
+    gap: 6px;
+  }
+
+  .input-small,
+  .btn-quick-book {
+    font-size: 11px;
+    padding: 8px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   TOAST GLOBAL (#alert-global) — usado por mostrarAlerta()
+   desde cualquier vista, incluido el panel de llamada
+══════════════════════════════════════════════════════════ */
+
+#alert-global {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  min-width: 260px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+#alert-global:empty {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESUMEN PARA INFORME AL ADMIN — modal (vista Citas)
+══════════════════════════════════════════════════════════ */
+
+.reporte-dia-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reporte-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  min-width: 70px;
+}
+
+[data-theme="dark"] .reporte-stat {
+  background: #0d1117;
+}
+
+.reporte-stat-valor {
+  font-size: 16px;
+  font-weight: 700;
+  color: #161c2d;
+}
+
+[data-theme="dark"] .reporte-stat-valor {
+  color: #e2e8f0;
+}
+
+.reporte-stat-label {
+  font-size: 10px;
+  color: #8492a6;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.reporte-dia-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.reporte-item {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #f8f9fa;
+}
+
+[data-theme="dark"] .reporte-item {
+  background: #0d1117;
+}
+
+.reporte-item-hora {
+  font-weight: 700;
+  color: #0A76D8;
+}
+
+.reporte-item-info {
+  color: #161c2d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .reporte-item-info {
+  color: #cbd5e1;
+}

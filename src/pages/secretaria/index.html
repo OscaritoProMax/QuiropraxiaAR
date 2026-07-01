@@ -1,16 +1,25 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quiromasajes — Secretaria</title>
+  <script>(function(){var t=localStorage.getItem('qm-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/pacientes.css">
+  <style id="security-guard">body { display:none !important; }</style>
   <style>
-
+  #splash-screen { position:fixed; inset:0; z-index:99999; background:var(--th-bg,#fff);
+    display:flex; align-items:center; justify-content:center; transition:opacity 0.7s ease; pointer-events:none; }
+  #splash-screen img { max-width:280px; max-height:280px; object-fit:contain;
+    animation:splash-pop 0.5s cubic-bezier(.22,.68,0,1.2); }
+  @keyframes splash-pop { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
   </style>
 </head>
 <body>
+
+<div id="splash-screen"><img src="../../../img/fff.png" alt=""></div>
 
 <div class="app-container">
 
@@ -64,9 +73,31 @@
       <span class="menu-label">Cronograma</span>
     </button>
 
+    <button class="menu-btn" data-view="semana">
+      <span class="menu-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+        </svg>
+      </span>
+      <span class="menu-label">Semana</span>
+    </button>
 
-  </nav>
+    <div class="menu-section-label">Sistema</div>
 
+    <button class="menu-btn" data-view="configuracion">
+      <span class="menu-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </span>
+      <span class="menu-label">Configuración</span>
+    </button>
 
     <div class="menu-section-label">Herramientas</div>
     <button class="menu-btn" data-view="herramientas">
@@ -75,6 +106,8 @@
       </span>
       <span class="menu-label">Herramientas</span>
     </button>
+  </nav>
+
   <div class="logout-area">
     <button class="logout-btn" id="btn-logout">
       <span class="menu-label">Cerrar sesión</span>
@@ -95,32 +128,105 @@
     <div class="page-content">
 
       <!-- DASHBOARD -->
-        <section id="view-dashboard" class="view-section active">
- 
-        <!-- Estadísticas -->
-        <div class="stats-grid">
-          <div class="dashboard-items">
-            <div class="h1-dashboard" id="stat-citas">—</div>
-            <div class="h3-dashboard">Citas hoy</div>
+      <section id="view-dashboard" class="view-section active">
+
+        <p id="dash-fecha" style="margin:0 0 16px;font-size:13px;color:var(--th-text2,#888);text-transform:capitalize"></p>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8"  y1="2" x2="8"  y2="6"/>
+                  <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-citas">—</div>
+            <div class="kpi-label">Citas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-citas">cargando...</div>
           </div>
-          <div class="dashboard-items">
-            <div class="h1-dashboard" id="stat-pacientes">—</div>
-            <div class="h3-dashboard">Pacientes registrados</div>
+
+          <div class="kpi-card kpi-yellow">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">total</span>
+            </div>
+            <div class="kpi-value" id="stat-pacientes">—</div>
+            <div class="kpi-label">Pacientes registrados</div>
+            <div class="kpi-sub">base de datos activa</div>
           </div>
-          <div class="dashboard-items">
-            <div class="h1-dashboard" id="stat-pendientes">—</div>
-            <div class="h3-dashboard">Pendientes hoy</div>
+
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-up">pendientes</span>
+            </div>
+            <div class="kpi-value" id="stat-pendientes">—</div>
+            <div class="kpi-label">Pendientes hoy</div>
+            <div class="kpi-sub">citas activas restantes</div>
           </div>
-          <div class="dashboard-items">
-            <div class="h1-dashboard" id="stat-canceladas">—</div>
-            <div class="h3-dashboard">Canceladas hoy</div>
+
+          <div class="kpi-card kpi-red">
+            <div class="kpi-top">
+              <div class="kpi-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9"  y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              <span class="kpi-trend kpi-trend-down">hoy</span>
+            </div>
+            <div class="kpi-value" id="stat-canceladas">—</div>
+            <div class="kpi-label">Canceladas hoy</div>
+            <div class="kpi-sub" id="kpi-sub-cancel">tasa de cancelacion</div>
+          </div>
+
+        </div>
+
+        <!-- Panel cita actual / agente IA -->
+        <div id="dash-panel-wrap"></div>
+
+        <!-- Agenda de hoy completa -->
+        <div class="dash-panel" style="margin-top:20px">
+          <div class="dash-panel-label">
+            <span class="dash-dot dash-dot-verde"></span>
+            Agenda de hoy
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Hora</th>
+                <th>Paciente</th>
+                <th>Ciudad</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr></thead>
+              <tbody id="dash-tbody"></tbody>
+            </table>
           </div>
         </div>
-      
-        <!-- DOS PANELES HORIZONTALES (cita actual + agente IA) -->
-        <div id="dash-panel-wrap"></div>
-      
-              </section>
+
+      </section>
 
 
              <!-- ════ PACIENTES — CRM ════ -->
@@ -162,6 +268,7 @@
         <div id="slots-container" class="slots-wrap">
           <div class="empty-state">Selecciona una fecha para ver la agenda</div>
         </div>
+        <div id="panel-paciente-cita"></div>
       </section>
 
       <!-- cronograma — vista de slots ─────────────────────────── -->
@@ -172,11 +279,78 @@
           <div id="crono-resumen" style="display:flex;align-items:center;gap:8px"></div>
           <button class="btn btn-gray btn-sm" id="btn-refresh-crono">↺ Actualizar</button>
         </div>
-      
+
         <!-- Contenedor de tarjetas -->
         <div id="cronograma-container"></div>
       </section>
 
+      <!-- SEMANA — calendario mensual con ocupación + drill-down ────── -->
+      <section id="view-semana" class="view-section">
+        <div id="semana-contenedor"></div>
+      </section>
+
+      <!-- CONFIGURACIÓN ─────────────────────────── -->
+      <section id="view-configuracion" class="view-section">
+        <div class="config-wrap">
+
+          <div class="config-section">
+            <h3 class="config-section-title">Tema del sistema</h3>
+            <div class="theme-options">
+
+              <div class="theme-card theme-card-active" data-theme-pick="light">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#0f172a"></div>
+                  <div class="theme-preview-main" style="background:#f0f4fa">
+                    <div class="theme-preview-card" style="background:#fff"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Claro profesional</div>
+                <div class="theme-card-sub">Blanco y azul · alta legibilidad</div>
+              </div>
+
+              <div class="theme-card" data-theme-pick="dark">
+                <div class="theme-check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="theme-preview">
+                  <div class="theme-preview-sidebar" style="background:#080d18"></div>
+                  <div class="theme-preview-main" style="background:#0d1117">
+                    <div class="theme-preview-card" style="background:#161b27"></div>
+                  </div>
+                </div>
+                <div class="theme-card-label">Dark mode elegante</div>
+                <div class="theme-card-sub">Oscuro moderno · menor fatiga visual</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3 class="config-section-title">Sesión</h3>
+            <p style="font-size:13px;color:var(--th-text2,#888);margin:0 0 14px">
+              Cierra tu sesión de forma segura. Deberás volver a iniciar sesión para ingresar.
+            </p>
+            <button class="btn btn-danger" id="btn-logout-config">Cerrar sesión</button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- HERRAMIENTAS ─────────────────────────── -->
+      <section id="view-herramientas" class="view-section">
+        <div style="padding:60px 20px;text-align:center;color:var(--th-text2,#888)">
+          Herramientas — Próximamente
+        </div>
+      </section>
 
     </div>
   </div>
@@ -196,7 +370,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Teléfono celular <span>*</span></label>
-        <input class="input-text" id="p-tel" placeholder="+57 300 000 0000" type="tel"/>
+        <input class="input-text" id="p-tel" placeholder="3001234567" type="tel" maxlength="10" minlength="10" pattern="[0-9]{10}"/>
       </div>
       </div>
       <div class="form-row-2col">
@@ -270,6 +444,24 @@
       <input type="hidden" id="c-paciente-id"/>
       <input type="hidden" id="c-paciente-nombre"/>
       <input type="hidden" id="c-paciente-ciudad"/>
+    </div>
+
+    <!-- Ciudad de origen — aparece solo al seleccionar paciente existente -->
+    <div id="cita-ciudad-wrap" style="display:none;margin-bottom:16px">
+      <div style="background:var(--primary-soft);border:1px solid rgba(10,118,216,.2);border-radius:10px;padding:12px 14px">
+        <label class="form-label" style="margin-bottom:8px">
+          Ciudad de origen
+          <span style="font-weight:400;color:var(--text-muted);font-size:11px"> — confirma o actualiza si cambió</span>
+        </label>
+        <div class="origen-selects">
+          <select class="input-text" id="cita-dpto">
+            <option value="">Departamento...</option>
+          </select>
+          <select class="input-text" id="cita-ciudad-sel" disabled>
+            <option value="">Ciudad...</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- Registro rápido -->
@@ -371,9 +563,73 @@
 
 
 
+<!-- ══ MODAL Registrar cobro ══ -->
+<div class="modal-overlay" id="modal-cobro">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" data-close="modal-cobro">×</button>
+    <h2 class="modal-title">Registrar cobro de sesión</h2>
+
+    <input type="hidden" id="cobro-cita-id"/>
+    <input type="hidden" id="cobro-cliente-id"/>
+    <input type="hidden" id="cobro-cliente-ciudad"/>
+    <input type="hidden" id="cobro-hora"/>
+    <input type="hidden" id="cobro-tipo-sesion"/>
+
+    <div style="margin-bottom:14px;padding:10px 14px;background:var(--bg-secondary);border-radius:8px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Paciente</div>
+      <div id="cobro-cliente-nombre" style="font-weight:600;font-size:15px">—</div>
+    </div>
+
+    <div class="form-row-2col" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="form-label">Tarifa sesión ($)</label>
+        <input class="input-text" type="number" id="cobro-tarifa" value="50000" min="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de sesión</label>
+        <input class="input-text" type="text" id="cobro-tipo-display" readonly
+               style="background:var(--bg-secondary);cursor:default"/>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="form-label">Medicamentos / ítems adicionales</label>
+      <div id="cobro-meds-lista" style="margin-bottom:8px"></div>
+      <button class="btn btn-soft btn-sm" id="btn-add-med" type="button">+ Agregar ítem</button>
+    </div>
+
+    <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span style="color:var(--text-muted)">Tarifa sesión</span>
+        <span id="cobro-resumen-tarifa">$50.000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+        <span style="color:var(--text-muted)">Medicamentos</span>
+        <span id="cobro-resumen-meds">$0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;border-top:1px solid var(--border);padding-top:8px">
+        <span>Total a cobrar</span>
+        <span id="cobro-resumen-total" style="color:var(--color-green)">$50.000</span>
+      </div>
+    </div>
+
+    <div id="alert-cobro"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" data-close="modal-cobro">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cobro">Confirmar y completar</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
+  import { protegerPagina } from '../../core/router.js';
   import { initSecretaria } from './handlers.js';
-  initSecretaria();
+  protegerPagina(['Administrador', 'Secretaria']).then(async () => {
+    document.getElementById('security-guard')?.remove();
+    await initSecretaria();
+    const splash = document.getElementById('splash-screen');
+    if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 750); }
+  });
 </script>
 
 </body>

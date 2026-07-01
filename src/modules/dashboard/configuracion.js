@@ -4,6 +4,14 @@
 // Proyecto: Quiromasajes
 // ══════════════════════════════════════════════════════════
 
+import { obtenerPagosMes, obtenerConfiguracion,
+         guardarConfiguracion, TARIFA_BASE }   from '../finanzas/pagosService.js';
+import { obtenerPacientes }                    from '../pacientes/pacientesService.js';
+import { obtenerCitasPorFecha, ESTADOS,
+         cargarHorarios, HORARIOS }            from '../citas/citasService.js';
+import { HOY }                                 from '../../shared/helpers.js';
+import { hora12Display, updateTimePicker }     from '../../shared/timePicker.js';
+
 // ══════════════════════════════════════════════════════════
 // PUNTO DE ENTRADA
 // ══════════════════════════════════════════════════════════
@@ -85,35 +93,55 @@ function initToggles() {
 // ══════════════════════════════════════════════════════════
 // FORMULARIOS DE CONFIGURACION
 // ══════════════════════════════════════════════════════════
-function initConfigForms() {
-  // Restaurar valores guardados
-  const tarifa   = localStorage.getItem('qm-tarifa')    || '60000';
-  const metaDia  = localStorage.getItem('qm-meta-dia')  || '600000';
-  const horaIni  = localStorage.getItem('qm-hora-ini')  || '08:00';
-  const horaFin  = localStorage.getItem('qm-hora-fin')  || '18:00';
-  const duracion = localStorage.getItem('qm-duracion')  || '60';
+async function initConfigForms() {
+  // Tarifa, meta diaria y horario de la jornada se guardan en Firestore
+  // (configuracion/general) para que apliquen de inmediato en todos los
+  // apartados y para todos los roles (cobro, finanzas, slots de citas, etc).
+  const { tarifaBase, metaDia, horaInicio, horaFin } = await obtenerConfiguracion();
 
-  setVal('cfg-tarifa',       tarifa);
+  setVal('cfg-tarifa',       tarifaBase);
   setVal('cfg-meta-dia',     metaDia);
-  setVal('cfg-hora-inicio',  horaIni);
+  setVal('cfg-hora-inicio',  horaInicio);
   setVal('cfg-hora-fin',     horaFin);
-  setVal('cfg-duracion',     duracion);
 
   // Guardar ingresos
   document.getElementById('btn-guardar-cfg-ingresos')
-    ?.addEventListener('click', () => {
-      localStorage.setItem('qm-tarifa',   getVal('cfg-tarifa'));
-      localStorage.setItem('qm-meta-dia', getVal('cfg-meta-dia'));
-      mostrarFeedback('btn-guardar-cfg-ingresos', 'Guardado');
+    ?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-guardar-cfg-ingresos');
+      const tarifaNueva = Number(getVal('cfg-tarifa')) || TARIFA_BASE;
+      const metaNueva   = Number(getVal('cfg-meta-dia')) || 0;
+      btn.disabled = true;
+      const res = await guardarConfiguracion({ tarifaBase: tarifaNueva, metaDia: metaNueva });
+      btn.disabled = false;
+      if (res.ok) mostrarFeedback('btn-guardar-cfg-ingresos', 'Guardado');
     });
 
-  // Guardar horario
+  // Guardar horario de la jornada de atención.
+  // Define a qué hora inicia y termina la atención → genera los slots de
+  // citas (intervalo fijo de 20 min). Aplica para todos los roles.
   document.getElementById('btn-guardar-cfg-horario')
-    ?.addEventListener('click', () => {
-      localStorage.setItem('qm-hora-ini', getVal('cfg-hora-inicio'));
-      localStorage.setItem('qm-hora-fin', getVal('cfg-hora-fin'));
-      localStorage.setItem('qm-duracion', getVal('cfg-duracion'));
-      mostrarFeedback('btn-guardar-cfg-horario', 'Guardado');
+    ?.addEventListener('click', async () => {
+      const btn    = document.getElementById('btn-guardar-cfg-horario');
+      const inicio = getVal('cfg-hora-inicio');
+      const fin    = getVal('cfg-hora-fin');
+
+      if (!inicio || !fin || fin <= inicio) {
+        mostrarFeedback('btn-guardar-cfg-horario', 'La hora fin debe ser mayor que la de inicio', true);
+        return;
+      }
+
+      btn.disabled = true;
+      const res = await guardarConfiguracion({ horaInicio: inicio, horaFin: fin });
+      btn.disabled = false;
+
+      if (res.ok) {
+        await cargarHorarios();                 // regenera HORARIOS (binding vivo)
+        updateTimePicker('c-hora', HORARIOS);   // refresca los selects de hora
+        updateTimePicker('r-hora', HORARIOS);
+        mostrarFeedback('btn-guardar-cfg-horario', 'Guardado');
+      } else {
+        mostrarFeedback('btn-guardar-cfg-horario', 'No se pudo guardar', true);
+      }
     });
 
   // Boton nuevo usuario desde configuracion
@@ -132,16 +160,16 @@ function getVal(id) {
   return document.getElementById(id)?.value || '';
 }
 
-function mostrarFeedback(btnId, texto) {
+function mostrarFeedback(btnId, texto, esError = false) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
   const original = btn.textContent;
-  btn.textContent = texto + ' correctamente';
+  btn.textContent = esError ? texto : texto + ' correctamente';
   btn.disabled = true;
   setTimeout(() => {
     btn.textContent = original;
     btn.disabled = false;
-  }, 1800);
+  }, esError ? 2600 : 1800);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -172,28 +200,45 @@ function initNavConfiguracion() {
 }
 
 // ══════════════════════════════════════════════════════════
-// KPIs EXTRA — sesiones por tipo, ring, cancelacion, actividad
-// Se renderizan con datos de Firebase cuando esten disponibles
-// y con datos demo mientras se carga
+// KPIs EXTRA — sesiones por tipo, ring pacientes, cancelacion, actividad
+// Datos reales desde Firebase
 // ══════════════════════════════════════════════════════════
-function initKpisExtra() {
-  renderTiposBarras();
-  renderRingDemo();
-  renderCancelacionBarras();
+async function initKpisExtra() {
+  const mesActual = HOY.slice(0, 7);
+  const [pagosDelMes, todosPacientes, citasHoy] = await Promise.all([
+    obtenerPagosMes(mesActual),
+    obtenerPacientes(),
+    obtenerCitasPorFecha(HOY),
+  ]);
+  renderTiposBarras(pagosDelMes);
+  renderRingPacientes(todosPacientes);
+  renderCancelacionBarras(citasHoy);
 }
 
-// Sesiones por tipo — barras horizontales
-function renderTiposBarras() {
+// Sesiones por tipo — barras horizontales con datos reales de pagos del mes
+function renderTiposBarras(pagos) {
   const cont = document.getElementById('tipos-barras');
   if (!cont) return;
 
-  const tipos = [
-    { nombre: 'Terapia lumbar',   pct: 38, color: '#0A76D8' },
-    { nombre: 'Ajuste general',   pct: 25, color: '#1a7a47' },
-    { nombre: 'Terapia cervical', pct: 18, color: '#946a00' },
-    { nombre: 'Evaluacion inicial', pct: 11, color: '#7c3aed' },
-    { nombre: 'Seguimiento',      pct: 8,  color: '#c0392b' },
-  ];
+  if (!pagos.length) {
+    cont.innerHTML = '<div style="color:var(--th-text2,#888);font-size:13px;padding:12px 0">Sin sesiones registradas este mes</div>';
+    return;
+  }
+
+  const COLORES = ['#0A76D8', '#1a7a47', '#946a00', '#7c3aed', '#c0392b', '#e67e22'];
+  const counts  = {};
+  for (const p of pagos) {
+    const t = p.tipoSesion || 'Ajuste general';
+    counts[t] = (counts[t] || 0) + 1;
+  }
+  const total = pagos.length;
+  const tipos = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([nombre, cantidad], i) => ({
+      nombre,
+      pct:   Math.round(cantidad / total * 100),
+      color: COLORES[i % COLORES.length],
+    }));
 
   cont.innerHTML = tipos.map(t => `
     <div class="tipo-row">
@@ -206,7 +251,6 @@ function renderTiposBarras() {
       </div>
     </div>`).join('');
 
-  // Animar barras al aparecer
   setTimeout(() => {
     cont.querySelectorAll('.tipo-bar-fill').forEach(bar => {
       bar.style.width = bar.dataset.w;
@@ -214,55 +258,62 @@ function renderTiposBarras() {
   }, 200);
 }
 
-// Ring nuevos vs recurrentes — demo hasta conectar Firebase
-function renderRingDemo() {
-  const pctRec = 68;
-  const pctNew = 32;
-  const total  = 247;
-  const rec    = Math.round(total * pctRec / 100);
-  const nuev   = total - rec;
-
-  const circumference = 2 * Math.PI * 46; // 289
-
+// Ring nuevos vs recurrentes — basado en fecha de registro de pacientes
+function renderRingPacientes(pacientes) {
   const ringRec = document.getElementById('ring-rec');
   const ringNew = document.getElementById('ring-new');
   const pctEl   = document.getElementById('ring-pct-rec');
   const recEl   = document.getElementById('ring-count-rec');
   const newEl   = document.getElementById('ring-count-new');
 
-  if (pctEl)  pctEl.textContent  = pctRec + '%';
-  if (recEl)  recEl.textContent  = rec;
-  if (newEl)  newEl.textContent  = nuev;
+  const ahora     = new Date();
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
 
-  if (ringRec) {
-    const offset = circumference * (1 - pctRec / 100);
-    ringRec.style.strokeDashoffset = offset;
-  }
-  if (ringNew) {
-    const offset = circumference * (1 - pctNew / 100);
-    ringNew.style.strokeDashoffset = offset;
-  }
+  const nuevos = pacientes.filter(p => {
+    const fr = p.fechaRegistro;
+    if (!fr) return false;
+    const d = fr.toDate ? fr.toDate() : new Date(fr);
+    return d >= inicioMes;
+  }).length;
+
+  const total       = pacientes.length;
+  const recurrentes = total - nuevos;
+  const pctRec      = total > 0 ? Math.round(recurrentes / total * 100) : 0;
+  const pctNew      = 100 - pctRec;
+  const circumference = 2 * Math.PI * 46;
+
+  if (pctEl)  pctEl.textContent = `${pctRec}%`;
+  if (recEl)  recEl.textContent = recurrentes;
+  if (newEl)  newEl.textContent = nuevos;
+
+  if (ringRec) ringRec.style.strokeDashoffset = circumference * (1 - pctRec / 100);
+  if (ringNew) ringNew.style.strokeDashoffset = circumference * (1 - pctNew / 100);
 }
 
-// Barras de tasa de cancelacion
-function renderCancelacionBarras() {
+// Barras de tasa de cancelacion — dato real de hoy
+function renderCancelacionBarras(citasHoy) {
   const cont = document.getElementById('cancelacion-barras');
   if (!cont) return;
 
+  const total      = citasHoy.length;
+  const canceladas = citasHoy.filter(c => c.estado === ESTADOS.CANCELADA).length;
+  const pctHoy     = total > 0 ? Math.round(canceladas / total * 100) : 0;
+  const colorHoy   = pctHoy >= 20 ? '#c0392b' : pctHoy >= 10 ? '#946a00' : '#1a7a47';
+
   const datos = [
-    { label: 'Hoy',         pct: 20, color: '#c0392b' },
-    { label: 'Esta semana', pct: 14, color: '#946a00' },
-    { label: 'Este mes',    pct: 9,  color: '#1a7a47' },
+    { label: 'Hoy',         pct: pctHoy, color: colorHoy, real: true },
+    { label: 'Esta semana', pct: null,   color: '#946a00', real: false },
+    { label: 'Este mes',    pct: null,   color: '#1a7a47', real: false },
   ];
 
   cont.innerHTML = datos.map(d => `
     <div class="tipo-row">
       <div class="tipo-header">
         <span class="tipo-nombre">${d.label}</span>
-        <span class="tipo-pct" style="color:${d.color}">${d.pct}%</span>
+        <span class="tipo-pct" style="color:${d.color}">${d.real ? d.pct + '%' : '—'}</span>
       </div>
       <div class="tipo-bar-bg">
-        <div class="tipo-bar-fill" style="width:0%;background:${d.color}" data-w="${d.pct}%"></div>
+        ${d.real ? `<div class="tipo-bar-fill" style="width:0%;background:${d.color}" data-w="${d.pct}%"></div>` : ''}
       </div>
     </div>`).join('');
 
@@ -272,54 +323,53 @@ function renderCancelacionBarras() {
     });
   }, 300);
 
-  // Alerta si la tasa de hoy es alta
   const alertEl = document.getElementById('alert-cancelacion');
-  if (alertEl && datos[0].pct >= 15) {
-    alertEl.className = 'alert alert-error';
-    alertEl.style.marginTop = '10px';
-    alertEl.textContent = 'Tasa de cancelacion alta hoy. Revisar motivos.';
+  if (alertEl) {
+    if (pctHoy >= 15) {
+      alertEl.className   = 'alert alert-error';
+      alertEl.style.marginTop = '10px';
+      alertEl.textContent = `Tasa de cancelacion alta hoy (${pctHoy}%). Revisar motivos.`;
+    } else {
+      alertEl.textContent = '';
+    }
   }
 }
 
 // ══════════════════════════════════════════════════════════
-// ACTIVIDAD RECIENTE — demo (se conecta a Firebase en siguiente sprint)
+// ACTIVIDAD RECIENTE — citas reales de hoy
 // ══════════════════════════════════════════════════════════
-function initActividadReciente() {
+async function initActividadReciente() {
   const cont = document.getElementById('actividad-lista');
   if (!cont) return;
 
-  const items = [
-    {
-      clase: 'actividad-dot-green',
-      icono: checkSVG(),
-      texto: '<strong>Carlos Mendoza</strong> — Sesion completada',
-      hora:  'Hace 5 min · Terapia lumbar',
-    },
-    {
-      clase: 'actividad-dot-blue',
-      icono: calSVG(),
-      texto: '<strong>Maria Lopez</strong> — Nueva cita agendada',
-      hora:  'Hace 22 min · 14 Mayo, 09:00',
-    },
-    {
-      clase: 'actividad-dot-red',
-      icono: xSVG(),
-      texto: '<strong>Jorge Perez</strong> — Cita cancelada',
-      hora:  'Hace 45 min · Motivo: no reportado',
-    },
-    {
-      clase: 'actividad-dot-yellow',
-      icono: userSVG(),
-      texto: '<strong>Andrea Castro</strong> — Nuevo paciente registrado',
-      hora:  'Hace 1h · Duitama, Boyaca',
-    },
-    {
-      clase: 'actividad-dot-blue',
-      icono: refreshSVG(),
-      texto: '<strong>Roberto Cardenas</strong> — Cita reprogramada',
-      hora:  'Hace 2h · 13 a 15 de Mayo, 15:30',
-    },
-  ];
+  const citas = await obtenerCitasPorFecha(HOY);
+  if (!citas.length) {
+    cont.innerHTML = '<div style="color:var(--th-text2,#888);font-size:13px;padding:12px 0">Sin actividad registrada hoy</div>';
+    return;
+  }
+
+  const items = citas
+    .slice()
+    .sort((a, b) => (b.hora || '').localeCompare(a.hora || ''))
+    .slice(0, 8)
+    .map(c => {
+      if (c.estado === ESTADOS.COMPLETADA) {
+        return { clase: 'actividad-dot-green', icono: checkSVG(),
+          texto: `<strong>${c.clienteNombre}</strong> — Sesion completada`,
+          hora: `${hora12Display(c.hora)} · ${c.tipo}` };
+      } else if (c.estado === ESTADOS.CANCELADA) {
+        return { clase: 'actividad-dot-red', icono: xSVG(),
+          texto: `<strong>${c.clienteNombre}</strong> — Cita cancelada`,
+          hora: `${hora12Display(c.hora)} · ${c.tipo}` };
+      } else if (c.estado === ESTADOS.REPROGRAMADA) {
+        return { clase: 'actividad-dot-yellow', icono: refreshSVG(),
+          texto: `<strong>${c.clienteNombre}</strong> — Cita reprogramada`,
+          hora: `${hora12Display(c.hora)} · ${c.tipo}` };
+      }
+      return { clase: 'actividad-dot-blue', icono: calSVG(),
+        texto: `<strong>${c.clienteNombre}</strong> — Cita agendada`,
+        hora: `${hora12Display(c.hora)} · ${c.tipo}` };
+    });
 
   cont.innerHTML = items.map(item => `
     <div class="actividad-item">
@@ -351,4 +401,4 @@ function refreshSVG() {
 // ══════════════════════════════════════════════════════════
 // EXPORTAR helpers para uso desde handlers.js si se necesita
 // ══════════════════════════════════════════════════════════
-export { aplicarTema, renderTiposBarras, renderRingDemo, renderCancelacionBarras };
+export { aplicarTema, renderTiposBarras, renderRingPacientes, renderCancelacionBarras };
