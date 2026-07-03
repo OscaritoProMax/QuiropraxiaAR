@@ -69,7 +69,7 @@ export async function login(email, password) {
     return { ok: true, usuario: datosUsuario };
 
   } catch (error) {
-    console.error("Error en login:", error);
+    console.error("Error en login:", error?.code || error?.message);
     return { ok: false, error: "Credenciales incorrectas." };
   }
 }
@@ -82,7 +82,18 @@ export async function login(email, password) {
 // En web/PC seguimos usando el popup estándar.
 async function iniciarSesionGoogle() {
   if (Capacitor.isNativePlatform()) {
-    const result   = await FirebaseAuthentication.signInWithGoogle();
+    let result;
+    try {
+      result = await FirebaseAuthentication.signInWithGoogle();
+    } catch (error) {
+      // Credential Manager (el flujo nuevo de Android) puede fallar con
+      // "No credentials available" en emuladores o con cuentas que nunca
+      // usaron esta app antes — reintentamos con el selector clásico de
+      // Google Sign-In, que es más tolerante en esos casos.
+      const mensaje = String(error?.message || '').toLowerCase();
+      if (!mensaje.includes('no credentials')) throw error;
+      result = await FirebaseAuthentication.signInWithGoogle({ useCredentialManager: false });
+    }
     const idToken   = result.credential?.idToken;
     const accessTok = result.credential?.accessToken;
     if (!idToken && !accessTok) {
@@ -142,7 +153,7 @@ export async function loginConGoogle() {
     return { ok: true, usuario: datosUsuario };
 
   } catch (error) {
-    console.error("🔥 Error real de Firebase Auth con Google:", error);
+    console.error("🔥 Error real de Firebase Auth con Google:", error?.code || error?.message);
     // Cancelación por el usuario — no mostramos error (web y nativo).
     const msg = (error?.message || "").toLowerCase();
     const cancelado =
@@ -221,7 +232,7 @@ export async function cerrarSesion() {
     // y compatibilidad con Vite base path
     window.location.replace('/index.html');
   } catch (error) {
-    console.error("Error al cerrar sesión:", error);
+    console.error("Error al cerrar sesión:", error?.code || error?.message);
   }
 }
 
@@ -281,7 +292,7 @@ export async function getUsuarioPorId(uid) {
     if (snap.exists()) return { id: snap.id, ...snap.data() };
     return null;
   } catch (error) {
-    console.error("Error obteniendo usuario:", error);
+    console.error("Error obteniendo usuario:", error?.code || error?.message);
     return null;
   }
 }

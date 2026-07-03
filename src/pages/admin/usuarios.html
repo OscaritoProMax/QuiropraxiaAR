@@ -319,25 +319,25 @@
 <div class="modal-overlay" id="modal-cambio-pass">
   <div class="modal-box" style="max-width:380px">
     <button class="modal-close" data-close="modal-cambio-pass">×</button>
-    <h2 class="modal-title">Cambiar contraseña</h2>
+    <h2 class="modal-title">Restablecer contraseña</h2>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
-      Usuario: <strong id="cambio-pass-nombre"></strong>
+      Se enviará un enlace para elegir una nueva contraseña al correo de
+      <strong id="cambio-pass-nombre"></strong> (<span id="cambio-pass-email"></span>).
+      Por seguridad, la contraseña nunca pasa por este panel.
     </p>
-    <div class="form-group">
-      <label class="form-label">Nueva contraseña</label>
-      <input class="input-text" id="nueva-password" type="password" placeholder="Mínimo 6 caracteres"/>
-    </div>
     <div id="alert-cambio-pass"></div>
     <div class="modal-actions">
       <button class="btn btn-gray" data-close="modal-cambio-pass">Cancelar</button>
-      <button class="btn btn-primary" id="btn-confirmar-pass">Cambiar contraseña</button>
+      <button class="btn btn-primary" id="btn-confirmar-pass">Enviar enlace</button>
     </div>
   </div>
 </div>
 
 <script type="module">
   import { initUsuarios } from './usuariosHandlers.js';
+  import { initMicroInteracciones } from '../../shared/interactions.js';
   initUsuarios();
+  initMicroInteracciones();
 </script>
 <script>
   document.getElementById('btn-back-mobile')?.addEventListener('click', () =>

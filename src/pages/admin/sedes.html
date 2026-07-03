@@ -174,9 +174,11 @@
 <script type="module">
   import { protegerPagina } from '../../core/router.js';
   import { initSedes }      from './sedesHandler.js';
+  import { initMicroInteracciones } from '../../shared/interactions.js';
   protegerPagina('Administrador').then(async (usuario) => {
     document.getElementById('security-guard')?.remove();
     await initSedes(usuario);
+    initMicroInteracciones();
   });
 </script>
 

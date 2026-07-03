@@ -383,6 +383,69 @@
   flex-shrink: 0;
 }
 
+.crm-btn-secondary {
+  background: var(--th-bg3);
+  color: var(--th-text);
+  border: 1px solid var(--th-card-border);
+}
+.crm-btn-secondary:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: none;
+}
+
+/* ════ LÍNEA DE ESTADO — reemplaza las métricas globales ════ */
+.crm-status-line {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ════ FILTRO ANIDADO — solo visible tras "Mostrar todos" ═══ */
+.crm-nested-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--th-card);
+  border: 1px solid var(--th-card-border);
+  border-radius: 10px;
+  padding: 9px 14px;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+.crm-nested-filter-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--th-text);
+  font-family: inherit;
+}
+.crm-nested-filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ════ PAGINACIÓN — "Mostrar todos" ═══════════════════════════ */
+.crm-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 0 2px;
+}
+.crm-paginacion-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 70px;
+  text-align: center;
+}
+.crm-paginacion .btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
 /* ════ PANEL IA — SUGERENCIA INTELIGENTE ════════════════════ */
 .crm-ia-container {
   background: linear-gradient(135deg, var(--primary-soft) 0%, rgba(10,118,216,.05) 100%);
@@ -770,6 +833,31 @@
   background: var(--danger-soft);
   color: var(--danger);
   border-color: var(--danger);
+}
+
+.crm-copy-btn {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: .55;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+.crm-copy-btn:hover {
+  opacity: 1;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+[data-theme="dark"] .crm-copy-btn:hover {
+  background: var(--th-bg3);
 }
 
 /* ════ VISTA TABLA ═══════════════════════════════════════════ */

@@ -12,7 +12,7 @@ import { renderCronograma, autoCompletarCitasViejas }
                                         from '../../modules/dashboard/cronograma.js';
 import { renderSemana }                from '../../modules/dashboard/semana.js';
 import { renderPerfil, renderSlots, renderDashboardPaneles,
-         renderResultadosBusqueda }     from '../../modules/dashboard/ui.js';
+         renderResultadosBusqueda, bindTabsCitas } from '../../modules/dashboard/ui.js';
 
 import { registrarPaciente, registrarPacienteRapido,
          buscarPacientes, obtenerDepartamentos, PAISES,
@@ -22,13 +22,19 @@ import { poblarSelectDepartamentos, poblarSelectCiudades } from '../../modules/p
 import { agendarCita, cancelarCita, reprogramarCita,
          obtenerCitasPorFecha, obtenerCitasPorCliente,
          sugerirHorario, ESTADOS, HORARIOS, cargarHorarios,
-         viajeEnFecha, obtenerCitasPendientesReprogramar }
+         viajeEnFecha, obtenerCitasPendientesReprogramar,
+         configurarVisibilidadMostrador }
                                         from '../../modules/citas/citasService.js';
+
+// Call Center nunca debe ver las citas de mostrador (agendadas para
+// pacientes que llegan sin cita previa desde el panel de Admin/Secretaria).
+configurarVisibilidadMostrador(true);
 
 import { mostrarAlerta, abrirModal, cerrarModal, iniciales,
          badgeEstado, crearBtn, HOY, MANANA,
          bindSelectGeo, bindSelectPais,
-         pedirMotivoCancelacion }       from '../../shared/helpers.js';
+         pedirMotivoCancelacion, escapeHtml } from '../../shared/helpers.js';
+import { toast, avisoCentral, initNavGrupos } from '../../shared/interactions.js';
 import { initTimePicker, setTimePicker,
          hora12Display }                from '../../shared/timePicker.js';
 
@@ -52,10 +58,14 @@ export async function initCallcenter() {
   await poblarSelectsCiudades();
   poblarSelectsHorarios();
   bindNavegacion();
+  initNavGrupos([
+    { id: 'citas', label: 'Citas', selectores: ['[data-view="citas"]', '[data-view="cronograma"]', '[data-view="semana"]'] },
+  ]);
   bindModalesGlobal();
   bindLogout();
   bindSidebarToggle();
   bindFiltrosFecha();
+  bindTabsCitas();
   bindFormPaciente();
   bindFormCita();
   bindFormReprogramar();
@@ -69,7 +79,10 @@ export async function initCallcenter() {
   await Promise.all([
     autoCompletarCitasViejas(),
     actualizarKpis(),
-    renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false),
+    renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false, true, {
+        onCancelarCita: cancelarCitaDesdeAsistente,
+        onReprogramarCita: reprogramarCitaDesdeAsistente,
+      }),
     renderPendientesReprogramar(),
   ]);
 }
@@ -198,8 +211,10 @@ async function mostrarVista(vista, btn) {
   document.getElementById('view-' + vista)?.classList.add('active');
   if (btn) btn.classList.add('menu-active');
 
+  // El título del topbar solo dice "Quiromasajes" en el Dashboard — en el
+  // resto de módulos vuelve a mostrar el nombre del módulo actual.
   const titulos = {
-    dashboard:     ['Dashboard',          'Resumen del día'],
+    dashboard:     ['Quiromasajes',       'Resumen del día'],
     citas:         ['Citas',              'Agenda de horarios'],
     cronograma:    ['Cronograma del día', 'Citas de hoy por estado y hora'],
     semana:        ['Semana',             'Ocupación del mes y la semana'],
@@ -219,7 +234,10 @@ async function mostrarVista(vista, btn) {
   if (vista === 'dashboard') {
     await Promise.all([
       actualizarKpis(),
-      renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false),
+      renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false, true, {
+        onCancelarCita: cancelarCitaDesdeAsistente,
+        onReprogramarCita: reprogramarCitaDesdeAsistente,
+      }),
       renderPendientesReprogramar(),
     ]);
   }
@@ -278,7 +296,9 @@ function setText(id, valor) {
 // SLOTS DE CITAS — vista "Citas" + resumen para informe al admin
 // ══════════════════════════════════════════════════════════
 function bindFiltrosFecha() {
-  document.getElementById('filter-fecha')
+  const filterFechaEl = document.getElementById('filter-fecha');
+  if (filterFechaEl) filterFechaEl.min = HOY;
+  filterFechaEl
     ?.addEventListener('change', e => cargarSlotsFecha(e.target.value));
 
   document.getElementById('btn-hoy')
@@ -339,9 +359,9 @@ async function renderPendientesReprogramar() {
         ${citas.map(c => `
           <div class="dash-proxima-item" style="gap:10px;flex-wrap:wrap">
             <span class="dash-proxima-hora">${formatearFechaCorta(c.fecha)} · ${hora12Display(c.hora)}</span>
-            <span class="dash-proxima-nombre">${c.clienteNombre}</span>
-            <span class="dash-proxima-tipo">${c.tipo}</span>
-            <button class="btn btn-soft btn-sm" data-reprog-pend="${c.id}" style="margin-left:auto">Reprogramar</button>
+            <span class="dash-proxima-nombre">${escapeHtml(c.clienteNombre)}</span>
+            <span class="dash-proxima-tipo">${escapeHtml(c.tipo)}</span>
+            <button class="btn btn-soft btn-sm" data-reprog-pend="${escapeHtml(c.id)}" style="margin-left:auto">Reprogramar</button>
           </div>`).join('')}
       </div>
     </div>`;
@@ -354,7 +374,7 @@ async function cancelarCitaConfirmar(citaId, fecha) {
   const motivo = await pedirMotivoCancelacion();
   if (!motivo) return;
   await cancelarCita(citaId, motivo, usuarioActual?.uid, usuarioActual?.nombre);
-  mostrarAlerta('alert-cita', 'Cita cancelada.', 'success');
+  toast('Cita cancelada.', 'success');
   await Promise.all([cargarSlotsFecha(fecha), actualizarKpis()]);
 }
 
@@ -398,7 +418,7 @@ function renderReporteDia(fecha, citas) {
   if (lista) lista.innerHTML = ordenadas.map(c => `
     <div class="reporte-item">
       <span class="reporte-item-hora">${hora12Display(c.hora)}</span>
-      <span class="reporte-item-info">${c.clienteNombre} · ${c.tipo}</span>
+      <span class="reporte-item-info">${escapeHtml(c.clienteNombre)} · ${escapeHtml(c.tipo)}</span>
       ${badgeEstado(c.estado)}
     </div>`).join('');
 
@@ -447,7 +467,9 @@ function abrirModalCita(horaPreseleccionada = null) {
   document.getElementById('c-paciente-ciudad').value    = '';
   document.getElementById('c-pac-sugerencias').style.display = 'none';
   document.getElementById('quick-register').classList.remove('visible');
-  document.getElementById('c-fecha').value = fechaAgenda || HOY;
+  const inputFecha = document.getElementById('c-fecha');
+  inputFecha.min   = HOY;
+  inputFecha.value = (fechaAgenda && fechaAgenda >= HOY) ? fechaAgenda : HOY;
   if (horaPreseleccionada) setTimePicker('c-hora', horaPreseleccionada);
   abrirModal('modal-cita');
 }
@@ -483,10 +505,10 @@ function bindFormCita() {
 
     sugerencias.innerHTML = res.map(p => `
       <div class="sugerencia-item"
-        data-id="${p.id}" data-nombre="${p.nombre}" data-ciudad="${p.ciudad || ''}"
+        data-id="${escapeHtml(p.id)}" data-nombre="${escapeHtml(p.nombre)}" data-ciudad="${escapeHtml(p.ciudad || '')}"
         style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5">
-        <strong>${p.nombre}</strong>
-        <span style="color:#8492a6"> · ${p.telefono || p.documento || '—'} · ${p.ciudad || '—'}</span>
+        <strong>${escapeHtml(p.nombre)}</strong>
+        <span style="color:#8492a6"> · ${escapeHtml(p.telefono || p.documento || '—')} · ${escapeHtml(p.ciudad || '—')}</span>
       </div>`).join('');
     sugerencias.style.display = 'block';
 
@@ -518,13 +540,13 @@ function bindFormCita() {
       document.getElementById('qp-dpto').value   = '';
       document.getElementById('qp-ciudad').value = '';
       document.getElementById('qp-pais').value   = '';
-      mostrarAlerta('alert-form-cita', `Paciente "${nombre}" registrado.`, 'success');
+      avisoCentral({ mensaje: `Paciente "${nombre}" registrado.`, tipo: 'success' });
     } else if (res.paciente) {
       asignarPacienteACita(res.paciente.id, res.paciente.nombre, res.paciente.ciudad || '');
       document.getElementById('quick-register').classList.remove('visible');
-      mostrarAlerta('alert-form-cita', 'Paciente ya existente — seleccionado.', 'success');
+      avisoCentral({ mensaje: 'Paciente ya existente — seleccionado.', tipo: 'success' });
     } else {
-      mostrarAlerta('alert-form-cita', res.error, 'error');
+      avisoCentral({ mensaje: res.error, tipo: 'error' });
     }
 
     btn.textContent = 'Guardar y usar este paciente'; btn.disabled = false;
@@ -554,10 +576,13 @@ function bindFormCita() {
     const res = await agendarCita(datos);
 
     if (res.ok) {
-      mostrarAlerta('alert-form-cita', 'Cita agendada correctamente.', 'success');
+      avisoCentral({ mensaje: 'Cita agendada correctamente.', tipo: 'success' });
       await Promise.all([
         actualizarKpis(),
-        renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false),
+        renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false, true, {
+        onCancelarCita: cancelarCitaDesdeAsistente,
+        onReprogramarCita: reprogramarCitaDesdeAsistente,
+      }),
         cargarSlotsFecha(datos.fecha),
       ]);
       setTimeout(() => {
@@ -566,27 +591,19 @@ function bindFormCita() {
       }, 900);
     } else {
       const sugerencia = await sugerirHorario(datos.fecha, datos.hora);
-      const alertEl = document.getElementById('alert-form-cita');
       if (sugerencia) {
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { if (alertEl) { alertEl.textContent = ''; alertEl.className = ''; } }, 8000);
-        document.getElementById('btn-usar-sugerencia')?.addEventListener('click', () => {
-          setTimePicker('c-hora', sugerencia.hora);
-          document.getElementById('c-fecha').value = sugerencia.fecha;
-          alertEl.textContent = ''; alertEl.className = '';
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
+            setTimePicker('c-hora', sugerencia.hora);
+            document.getElementById('c-fecha').value = sugerencia.fecha;
+          },
         });
       } else {
-        mostrarAlerta('alert-form-cita', res.error + ' No hay horarios disponibles ese día.', 'error');
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
     }
 
@@ -620,6 +637,40 @@ function abrirModalCitaDesdeVoz(datos) {
     input.value = datos.clienteNombre;
     input.dispatchEvent(new Event('input'));
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// ASISTENTE IA — cancelar / reprogramar cita existente
+// ══════════════════════════════════════════════════════════
+async function cancelarCitaDesdeAsistente(cita) {
+  const motivo = await pedirMotivoCancelacion();
+  if (!motivo) return false;
+  const res = await cancelarCita(cita.id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
+  if (!res.ok) {
+    toast(res.error || 'No se pudo cancelar la cita.', 'error');
+    return false;
+  }
+  toast('Cita cancelada.', 'success');
+  await Promise.all([
+    actualizarKpis(),
+    renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
+  ]);
+  const fechaFiltro = document.getElementById('filter-fecha')?.value;
+  if (fechaFiltro) await cargarSlotsFecha(fechaFiltro);
+  return true;
+}
+
+function reprogramarCitaDesdeAsistente(cita, nuevaFecha, nuevaHora) {
+  citaReprogramarId = cita.id;
+  const rFechaEl = document.getElementById('r-fecha');
+  const fechaInicial = (nuevaFecha && nuevaFecha >= HOY) ? nuevaFecha : HOY;
+  rFechaEl.min   = HOY;
+  rFechaEl.value = fechaInicial;
+  if (nuevaHora) setTimePicker('r-hora', nuevaHora);
+  abrirModal('modal-reprogramar');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -674,7 +725,9 @@ function bindFormPaciente() {
 // ══════════════════════════════════════════════════════════
 function abrirModalReprogramar(citaId, fecha) {
   citaReprogramarId = citaId;
-  document.getElementById('r-fecha').value = fecha;
+  const rFechaEl = document.getElementById('r-fecha');
+  rFechaEl.min   = HOY;
+  rFechaEl.value = fecha < HOY ? HOY : fecha;
   abrirModal('modal-reprogramar');
 }
 
@@ -689,34 +742,24 @@ function bindFormReprogramar() {
 
     if (res.ok) {
       cerrarModal('modal-reprogramar');
-      mostrarAlerta('alert-cita', 'Cita reprogramada correctamente.', 'success');
+      toast('Cita reprogramada correctamente.', 'success');
       await Promise.all([cargarSlotsFecha(fechaAgenda), actualizarKpis(), renderPendientesReprogramar()]);
     } else {
       const sugerencia = await sugerirHorario(fecha, hora);
-      const alertEl     = document.getElementById('alert-reprog');
 
       if (sugerencia) {
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia-reprog">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 8000);
-        document.getElementById('btn-usar-sugerencia-reprog')?.addEventListener('click', () => {
-          setTimePicker('r-hora', sugerencia.hora);
-          document.getElementById('r-fecha').value = sugerencia.fecha;
-          alertEl.textContent = ''; alertEl.className = '';
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
+            setTimePicker('r-hora', sugerencia.hora);
+            document.getElementById('r-fecha').value = sugerencia.fecha;
+          },
         });
       } else {
-        alertEl.className   = 'alert alert-error';
-        alertEl.textContent = res.error + ' No hay horarios disponibles ese día.';
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 5000);
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
     }
 
@@ -1003,7 +1046,7 @@ async function cargarHistorialClienteLlamada(clienteId) {
   container.innerHTML = citas.slice(0, 3).map(cita => `
     <div class="cita-history-item">
       <span class="cita-date">${formatearFechaCorta(cita.fecha)} · ${hora12Display(cita.hora)}</span>
-      <span class="cita-service">${cita.tipo} — ${cita.estado}</span>
+      <span class="cita-service">${escapeHtml(cita.tipo)} — ${escapeHtml(cita.estado)}</span>
     </div>`).join('');
 }
 
@@ -1052,7 +1095,10 @@ async function agendarCitaRapidaLlamada() {
     mostrarAlerta('alert-global', `✓ Cita guardada correctamente ${cuando} a las ${hora12Display(hora)}.`, 'success');
     await Promise.all([
       actualizarKpis(),
-      renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false),
+      renderDashboardPaneles(avisoAccionNoPermitida, abrirModalCitaDesdeVoz, false, false, true, {
+        onCancelarCita: cancelarCitaDesdeAsistente,
+        onReprogramarCita: reprogramarCitaDesdeAsistente,
+      }),
       document.getElementById('view-citas')?.classList.contains('active')
         ? cargarSlotsFecha(fechaAgenda)
         : Promise.resolve(),

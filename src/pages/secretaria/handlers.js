@@ -18,7 +18,7 @@ import { registrarPaciente, registrarPacienteRapido,
          obtenerDepartamentos, obtenerPacientePorId, PAISES,
          ubicacionString, parsearUbicacion }         from '../../modules/pacientes/pacientesService.js';
 import { agendarCita, cancelarCita, reprogramarCita,
-         enviarPagoAPendiente, sugerirHorario, ESTADOS, HORARIOS, cargarHorarios,
+         enviarPagoAPendiente, sugerirHorario, sugerirHorariosMostrador, ESTADOS, HORARIOS, cargarHorarios,
          viajeEnFecha }         from '../../modules/citas/citasService.js';
 import { formatCOP, TARIFA_BASE, obtenerConfiguracion,
          obtenerTarifaBaseActual }                    from '../../modules/finanzas/pagosService.js';
@@ -32,13 +32,15 @@ import {  inicializarSelectsUbicacion,
 import { mostrarAlerta, abrirModal, cerrarModal,
          crearBtn, HOY, MANANA,
          bindSelectGeo, bindSelectPais,
-         pedirMotivoCancelacion }                    from '../../shared/helpers.js';
+         pedirMotivoCancelacion, escapeHtml }        from '../../shared/helpers.js';
+import { toast, avisoCentral, initNavGrupos, confirmar } from '../../shared/interactions.js';
 import { initTimePicker, updateTimePicker,
-         setTimePicker }                             from '../../shared/timePicker.js';
+         setTimePicker, hora12Display }               from '../../shared/timePicker.js';
 import { renderPerfil, renderEstadisticas, renderCitasHoy,
          renderSlots, renderPacientes, renderPills,
          renderDashboardPaneles, renderGestorPacientes,
-         renderResultadosBusqueda, renderFormEditar } from '../../modules/dashboard/ui.js';
+         renderResultadosBusqueda, renderFormEditar,
+         bindTabsCitas, abrirModalPaciente }          from '../../modules/dashboard/ui.js';
 
 // ══════════════════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -59,11 +61,17 @@ export async function initSecretaria() {
   poblarSelectsHorarios();
   bindModalCobro();
   bindNavegacion();
+  initNavGrupos([
+    { id: 'citas', label: 'Citas', selectores: ['[data-view="citas"]', '[data-view="cronograma"]', '[data-view="semana"]'] },
+  ]);
   bindModalesGlobal();
   bindLogout();
   bindFiltrosFecha();
+  bindTabsCitas();
   bindFormPaciente();
   bindFormCita();
+  bindFormCitaMostrador();
+  document.getElementById('fab-cita-mostrador')?.addEventListener('click', () => abrirModalCitaMostrador());
   bindFormReprogramar();
   bindCronograma();
   initTema();
@@ -241,7 +249,10 @@ async function initAuth() {
   await Promise.all([
     autoCompletarCitasViejas(),
     renderEstadisticas(),
-    renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+    renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, false, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
     renderCitasHoy(completarCitaHoy),
     cargarPacientesCache(),
     obtenerConfiguracion(),
@@ -256,16 +267,25 @@ async function initAuth() {
 
 
 async function completarCitaHoy(citaId) {
+  // completarCitaHoy se usa tanto para el botón del panel "cita en curso"
+  // (.dash-cita-card, id btn-completar-foco) como para cada fila de la
+  // tabla "Citas de hoy" (<tr data-completar>, ver renderCitasHoy en ui.js).
+  const trigger = document.querySelector(`[data-completar="${citaId}"]`)
+                || document.getElementById('btn-completar-foco');
+  const card = trigger?.closest('.dash-cita-card, tr');
   abrirModalCobro({
     citaId,
-    clienteId:     '',
-    clienteNombre: '',
-    clienteCiudad: '',
-    hora:          '',
-    tipoSesion:    'Ajuste general',
+    clienteId:     card?.dataset?.clienteId     || '',
+    clienteNombre: card?.querySelector('.dash-cita-nombre, .citahoy-nombre')?.textContent?.trim() || '',
+    clienteCiudad: card?.dataset?.clienteCiudad || '',
+    hora:          card?.dataset?.hora || '',
+    tipoSesion:    card?.dataset?.tipoSesion || 'Ajuste general',
     onConfirmar: async () => {
       await Promise.all([
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, false, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
         renderEstadisticas(),
         renderCitasHoy(completarCitaHoy),
       ]);
@@ -300,8 +320,10 @@ async function mostrarVista(vista, btn) {
   document.getElementById('view-' + vista)?.classList.add('active');
   if (btn) btn.classList.add('menu-active');
 
+  // El título del topbar solo dice "Quiromasajes" en el Dashboard — en el
+  // resto de módulos vuelve a mostrar el nombre del módulo actual.
   const titulos = {
-    dashboard:    ['Dashboard',            'Resumen del día'],
+    dashboard:    ['Quiromasajes',         'Resumen del día'],
     pacientes:    ['Gestión de pacientes', 'Registro, búsqueda y edición de pacientes'],
     citas:        ['Gestión de citas',     'Agenda de horarios'],
     cronograma:   ['Cronograma del día',   'Citas de hoy por estado y hora'],
@@ -317,10 +339,17 @@ async function mostrarVista(vista, btn) {
   const actions = document.getElementById('topbar-actions');
   actions.innerHTML = '';
 
+  // FAB de "cita de mostrador" — solo visible dentro de la vista Citas.
+  const fabMostrador = document.getElementById('fab-cita-mostrador');
+  if (fabMostrador) fabMostrador.style.display = vista === 'citas' ? 'flex' : 'none';
+
   if (vista === 'dashboard') {
     await Promise.all([
       renderEstadisticas(),
-      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, false, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
       renderCitasHoy(completarCitaHoy),
     ]);
   }
@@ -329,16 +358,15 @@ async function mostrarVista(vista, btn) {
     actions.appendChild(crearBtn('+ Nuevo paciente', () => abrirModal('modal-paciente')));
     await renderGestorPacientes({
       onRegistrar: () => abrirModal('modal-paciente'),
-      onActualizar: async (id, datos) => {
-        const res = await actualizarPaciente(id, datos);
-        if (res.ok) await cargarPacientesCache();
-        return res;
-      },
+      // abrirModalPaciente() ya guarda directamente — este hook solo
+      // refresca la caché de pacientes (usada por los autocompletados).
+      onActualizar: async () => { await cargarPacientesCache(); },
       onEliminar: async (id) => {
         const res = await eliminarPaciente(id);
         if (res.ok) await cargarPacientesCache();
         return res;
       },
+      esAdmin: false,
     });
   }
 
@@ -377,8 +405,9 @@ function irACitasDesdeSemana(fechaStr) {
 // SLOTS DE CITAS
 // ══════════════════════════════════════════════════════════
 function bindFiltrosFecha() {
-  document.getElementById('filter-fecha')
-    .addEventListener('change', e => cargarSlotsFecha(e.target.value));
+  const filterFechaEl = document.getElementById('filter-fecha');
+  filterFechaEl.min = HOY;
+  filterFechaEl.addEventListener('change', e => cargarSlotsFecha(e.target.value));
 
   document.getElementById('btn-hoy')
     .addEventListener('click', () => {
@@ -403,15 +432,14 @@ async function cargarSlotsFecha(fecha) {
   await renderSlots(fecha, {
     onAgendar:      (hora) => abrirModalCita(hora),
     onCompletar:    async (id, f) => {
-      const btn = document.querySelector(`[data-completar="${id}"]`);
-      const row = btn?.closest('.slot-row');
+      const row = document.querySelector(`[data-completar="${id}"]`)?.closest('.slot-row');
       abrirModalCobro({
         citaId:        id,
-        clienteId:     '',
+        clienteId:     row?.dataset?.clienteId     || '',
         clienteNombre: row?.querySelector('.slot-name')?.textContent?.trim() || '',
-        clienteCiudad: row?.querySelector('.slot-meta')?.textContent?.split('·')[1]?.trim() || '',
-        hora:          row?.querySelector('.slot-time')?.textContent?.trim() || f,
-        tipoSesion:    row?.querySelector('.slot-meta')?.textContent?.split('·')[0]?.trim() || 'Ajuste general',
+        clienteCiudad: row?.dataset?.clienteCiudad || '',
+        hora:          row?.dataset?.hora || '',
+        tipoSesion:    row?.dataset?.tipoSesion || 'Ajuste general',
         onConfirmar:   async () => {
           await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
         },
@@ -419,121 +447,19 @@ async function cargarSlotsFecha(fecha) {
     },
     onReprogramar:  (id, f) => {
       citaReprogramarId = id;
-      document.getElementById('r-fecha').value = f;
+      const rFechaEl = document.getElementById('r-fecha');
+      rFechaEl.min   = HOY;
+      rFechaEl.value = f < HOY ? HOY : f;
       abrirModal('modal-reprogramar');
     },
     onCancelar:     async (id, f) => {
       const motivo = await pedirMotivoCancelacion();
       if (!motivo) return;
       await cancelarCita(id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
-      mostrarAlerta('alert-cita', 'Cita cancelada.', 'success');
+      toast('Cita cancelada.', 'success');
       await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
     },
-    onVerPaciente: (id) => abrirPanelPacienteCita(id),
-  });
-}
-
-async function abrirPanelPacienteCita(pacienteId) {
-  const panel = document.getElementById('panel-paciente-cita');
-  if (!panel) return;
-
-  panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary)">
-    <div style="font-size:13px;color:var(--text-muted)">Cargando datos del paciente...</div>
-  </div>`;
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-  const pac = await obtenerPacientePorId(pacienteId);
-  if (!pac) {
-    panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px">
-      <div style="font-size:13px;color:var(--danger)">No se encontró el paciente.</div>
-    </div>`;
-    return;
-  }
-
-  panel.innerHTML = `
-    <div style="margin-top:16px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary);overflow:hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--th-divider)">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${pac.nombre.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;color:var(--th-text)">${pac.nombre}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${pac.telefono || '—'} · ${pac.ciudad || 'Sin ciudad'}</div>
-          </div>
-        </div>
-        <button id="ppc-cerrar" style="background:none;border:1px solid var(--th-card-border);border-radius:7px;width:28px;height:28px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:16px">×</button>
-      </div>
-      <div style="padding:16px 18px">
-        <div id="alert-ppc" style="margin-bottom:10px"></div>
-        <div class="form-row-2col">
-          <div class="form-group">
-            <label class="form-label">Nombre completo</label>
-            <input class="input-text" id="ppc-nombre" value="${pac.nombre || ''}"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Teléfono <span style="font-weight:400;color:var(--text-muted);font-size:11px">(no editable)</span></label>
-            <input class="input-text" value="${pac.telefono || ''}" disabled style="opacity:.6;cursor:not-allowed"/>
-          </div>
-        </div>
-        <div class="form-row-2col">
-          <div class="form-group">
-            <label class="form-label">Documento</label>
-            <input class="input-text" id="ppc-doc" value="${pac.documento || ''}"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Correo</label>
-            <input class="input-text" id="ppc-email" type="email" value="${pac.email || ''}"/>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Ciudad de origen</label>
-          <div class="origen-selects">
-            <select class="input-text" id="ppc-dpto"><option value="">Cargando...</option></select>
-            <select class="input-text" id="ppc-ciudad" disabled><option value="">Ciudad...</option></select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Condición / motivo de consulta</label>
-          <input class="input-text" id="ppc-condicion" value="${pac.condicion || ''}" placeholder="Ej: Dolor lumbar crónico"/>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
-          <button class="btn btn-gray btn-sm" id="ppc-cancelar">Cancelar</button>
-          <button class="btn btn-primary btn-sm" id="ppc-guardar" data-id="${pac.id}">Guardar cambios</button>
-        </div>
-      </div>
-    </div>`;
-
-  let _getPpcUbicacion = () => pac.ciudad || '';
-  const dptoEl   = document.getElementById('ppc-dpto');
-  const ciudadEl = document.getElementById('ppc-ciudad');
-  _getPpcUbicacion = await inicializarSelectsUbicacion(dptoEl, ciudadEl);
-  if (pac.ciudad) await restaurarUbicacion(dptoEl, ciudadEl, pac.ciudad);
-
-  document.getElementById('ppc-cerrar')?.addEventListener('click', () => { panel.innerHTML = ''; });
-  document.getElementById('ppc-cancelar')?.addEventListener('click', () => { panel.innerHTML = ''; });
-
-  document.getElementById('ppc-guardar')?.addEventListener('click', async () => {
-    const btn = document.getElementById('ppc-guardar');
-    btn.textContent = 'Guardando...'; btn.disabled = true;
-    const datos = {
-      nombre:    document.getElementById('ppc-nombre')?.value.trim(),
-      documento: document.getElementById('ppc-doc')?.value.trim(),
-      email:     document.getElementById('ppc-email')?.value.trim(),
-      condicion: document.getElementById('ppc-condicion')?.value.trim(),
-      ciudad:    _getPpcUbicacion(),
-    };
-    if (!datos.nombre) {
-      mostrarAlerta('alert-ppc', 'El nombre es obligatorio.', 'error');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-      return;
-    }
-    const res = await actualizarPaciente(pac.id, datos);
-    if (res.ok) {
-      mostrarAlerta('alert-ppc', 'Paciente actualizado correctamente.', 'success');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-    } else {
-      mostrarAlerta('alert-ppc', res.error || 'Error al guardar.', 'error');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-    }
+    onVerPaciente: (id) => abrirModalPaciente(id),
   });
 }
 
@@ -734,7 +660,9 @@ function abrirModalCita(horaPreseleccionada = null) {
   document.getElementById('cita-ciudad-sel').value = '';
   document.getElementById('cita-ciudad-sel').disabled = true;
   _getUbicacionCita = () => '';
-  document.getElementById('c-fecha').value = HOY;
+  const inputFecha = document.getElementById('c-fecha');
+  inputFecha.min   = HOY;
+  inputFecha.value = HOY;
   if (horaPreseleccionada) setTimePicker('c-hora', horaPreseleccionada);
   abrirModal('modal-cita');
 }
@@ -773,10 +701,10 @@ function bindFormCita() {
 
     sugerencias.innerHTML = res.map(p => `
       <div class="sugerencia-item"
-        data-id="${p.id}" data-nombre="${p.nombre}" data-ciudad="${p.ciudad || ''}"
+        data-id="${escapeHtml(p.id)}" data-nombre="${escapeHtml(p.nombre)}" data-ciudad="${escapeHtml(p.ciudad || '')}"
         style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5">
-        <strong>${p.nombre}</strong>
-        <span style="color:#8492a6"> · ${p.telefono || p.documento || '—'} · ${p.ciudad || '—'}</span>
+        <strong>${escapeHtml(p.nombre)}</strong>
+        <span style="color:#8492a6"> · ${escapeHtml(p.telefono || p.documento || '—')} · ${escapeHtml(p.ciudad || '—')}</span>
       </div>`).join('');
     sugerencias.style.display = 'block';
 
@@ -815,7 +743,7 @@ function bindFormCita() {
       document.getElementById('c-paciente-nombre').value = res.paciente.nombre;
       document.getElementById('c-buscar-pac').value      = res.paciente.nombre;
       document.getElementById('quick-register').classList.remove('visible'); // ← AGREGAR
-      mostrarAlerta('alert-form-cita', 'Paciente ya existente — seleccionado.', 'success');
+      avisoCentral({ mensaje: 'Paciente ya existente — seleccionado.', tipo: 'success' });
     }
         }
 
@@ -857,11 +785,14 @@ function bindFormCita() {
     const res = await agendarCita(datos);
 
     if (res.ok) {
-      mostrarAlerta('alert-form-cita', 'Cita agendada correctamente.', 'success');
+      avisoCentral({ mensaje: 'Cita agendada correctamente.', tipo: 'success' });
       const fechaActual = document.getElementById('filter-fecha').value;
       await Promise.all([
         renderEstadisticas(),
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, false, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
         ...(fechaActual ? [cargarSlotsFecha(fechaActual)] : []),
       ]);
       setTimeout(() => {
@@ -872,27 +803,204 @@ function bindFormCita() {
       // ── Sugerir próximo horario disponible ──────────────
       const sugerencia = await sugerirHorario(datos.fecha, datos.hora);
       if (sugerencia) {
-        const alertEl = document.getElementById('alert-form-cita');
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { if (alertEl) { alertEl.textContent = ''; alertEl.className = ''; } }, 8000);
-        document.getElementById('btn-usar-sugerencia')?.addEventListener('click', () => {
-          setTimePicker('c-hora', sugerencia.hora);
-          document.getElementById('c-fecha').value = sugerencia.fecha;
-          alertEl.textContent = ''; alertEl.className = '';
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
+            setTimePicker('c-hora', sugerencia.hora);
+            document.getElementById('c-fecha').value = sugerencia.fecha;
+          },
         });
       } else {
-        mostrarAlerta('alert-form-cita', res.error + ' No hay horarios disponibles ese día.', 'error');
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
+    }
+
+    btn.textContent = 'Agendar'; btn.disabled = false;
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// MODAL CITA DE MOSTRADOR — paciente que llega sin cita previa.
+// A diferencia del modal normal, la hora no sale de un select con la
+// grilla fija: se calcula con sugerirHorariosMostrador() (huecos entre
+// citas ya agendadas + hasta 1h antes/después de la jornada) y se elige
+// entre los "chips" resultantes.
+// ══════════════════════════════════════════════════════════
+let _cmCandidatosActuales  = [];
+let _cmHorarioSeleccionado = null;
+
+function abrirModalCitaMostrador() {
+  document.getElementById('cm-buscar-pac').value      = '';
+  document.getElementById('cm-paciente-id').value     = '';
+  document.getElementById('cm-paciente-nombre').value = '';
+  document.getElementById('cm-paciente-ciudad').value = '';
+  document.getElementById('cm-pac-sugerencias').style.display = 'none';
+  document.getElementById('cm-notas').value = '';
+  document.getElementById('alert-form-cita-mostrador').innerHTML = '';
+  _cmHorarioSeleccionado = null;
+
+  const fechaFiltro = document.getElementById('filter-fecha')?.value || HOY;
+  const inputFecha  = document.getElementById('cm-fecha');
+  inputFecha.min    = HOY;
+  inputFecha.value  = fechaFiltro < HOY ? HOY : fechaFiltro;
+
+  _cargarHorariosMostrador(inputFecha.value);
+  inputFecha.onchange = () => _cargarHorariosMostrador(inputFecha.value);
+
+  abrirModal('modal-cita-mostrador');
+}
+
+async function _cargarHorariosMostrador(fecha) {
+  const cont = document.getElementById('cm-horarios');
+  cont.innerHTML = '<div class="empty-state">Cargando horarios...</div>';
+  _cmHorarioSeleccionado = null;
+  document.getElementById('cm-hora-sel').value = '';
+
+  const candidatos = await sugerirHorariosMostrador(fecha);
+  _cmCandidatosActuales = candidatos;
+
+  if (!candidatos.length) {
+    cont.innerHTML = '<div class="empty-state">No hay horarios disponibles para citas de mostrador este día.</div>';
+    return;
+  }
+
+  const conIdx     = candidatos.map((c, idx) => ({ ...c, idx }));
+  const extendidos = conIdx.filter(c => c.tipo === 'extendido');
+  const huecos      = conIdx.filter(c => c.tipo === 'hueco');
+
+  let html = '';
+  if (extendidos.length) {
+    html += `<div class="cm-horarios-grupo-label">Fuera de jornada (hasta 1h antes/después)</div>
+      <div class="cm-horarios-chips">${extendidos.map(_chipHorarioHtml).join('')}</div>`;
+  }
+  if (huecos.length) {
+    html += `<div class="cm-horarios-grupo-label" style="margin-top:6px">Entre citas ya agendadas</div>
+      <div class="cm-horarios-chips">${huecos.map(_chipHorarioHtml).join('')}</div>`;
+  }
+  cont.innerHTML = html;
+
+  cont.querySelectorAll('[data-idx]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      cont.querySelectorAll('.cm-horario-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      _cmHorarioSeleccionado = _cmCandidatosActuales[Number(chip.dataset.idx)];
+      document.getElementById('cm-hora-sel').value = _cmHorarioSeleccionado.hora;
+    });
+  });
+}
+
+function _chipHorarioHtml(c) {
+  return `<button type="button" class="cm-horario-chip" data-idx="${c.idx}">
+    ${hora12Display(c.hora)}
+    ${c.mueve ? `<span class="cm-horario-chip-mueve">mueve a ${escapeHtml(c.mueve.clienteNombre)} de ${hora12Display(c.mueve.deHora)}</span>` : ''}
+  </button>`;
+}
+
+function bindFormCitaMostrador() {
+  const inputBuscar = document.getElementById('cm-buscar-pac');
+  const sugerencias = document.getElementById('cm-pac-sugerencias');
+
+  inputBuscar.addEventListener('input', async () => {
+    const q = inputBuscar.value.trim();
+    if (q.length < 2) { sugerencias.style.display = 'none'; return; }
+
+    const res = await buscarPacientes(q);
+    if (!res.length) {
+      sugerencias.innerHTML = `
+        <div style="padding:10px 14px;font-size:13px;color:#8492a6">
+          No encontrado — regístralo primero en "Pacientes" o desde "+ Agendar cita".
+        </div>`;
+      sugerencias.style.display = 'block';
+      return;
+    }
+
+    sugerencias.innerHTML = res.map(p => `
+      <div class="sugerencia-item"
+        data-id="${escapeHtml(p.id)}" data-nombre="${escapeHtml(p.nombre)}" data-ciudad="${escapeHtml(p.ciudad || '')}"
+        style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5">
+        <strong>${escapeHtml(p.nombre)}</strong>
+        <span style="color:#8492a6"> · ${escapeHtml(p.telefono || p.documento || '—')} · ${escapeHtml(p.ciudad || '—')}</span>
+      </div>`).join('');
+    sugerencias.style.display = 'block';
+
+    sugerencias.querySelectorAll('.sugerencia-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.getElementById('cm-paciente-id').value     = item.dataset.id;
+        document.getElementById('cm-paciente-nombre').value = item.dataset.nombre;
+        document.getElementById('cm-paciente-ciudad').value = item.dataset.ciudad || '';
+        inputBuscar.value = item.dataset.nombre;
+        sugerencias.style.display = 'none';
+      });
+      item.addEventListener('mouseover', () => { item.style.background = '#f0f7ff'; });
+      item.addEventListener('mouseout',  () => { item.style.background = ''; });
+    });
+  });
+
+  document.getElementById('btn-guardar-cita-mostrador').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-guardar-cita-mostrador');
+    const pid = document.getElementById('cm-paciente-id').value;
+    if (!pid) {
+      mostrarAlerta('alert-form-cita-mostrador', 'Selecciona un paciente primero.', 'error');
+      return;
+    }
+    if (!_cmHorarioSeleccionado) {
+      mostrarAlerta('alert-form-cita-mostrador', 'Selecciona un horario.', 'error');
+      return;
+    }
+
+    const fecha     = document.getElementById('cm-fecha').value;
+    const candidato = _cmHorarioSeleccionado;
+
+    if (candidato.mueve) {
+      const ok = await confirmar({
+        titulo: 'Reubicar cita existente',
+        mensaje: `Para dejar el espacio parejo, la cita de ${candidato.mueve.clienteNombre} se moverá de las ${hora12Display(candidato.mueve.deHora)} a las ${hora12Display(candidato.mueve.aHora)}. ¿Continuar?`,
+        tipo: 'warning',
+        textoConfirmar: 'Sí, mover y agendar',
+        textoCancelar: 'Cancelar',
+      });
+      if (!ok) return;
+    }
+
+    btn.textContent = 'Agendando...'; btn.disabled = true;
+
+    if (candidato.mueve) {
+      const resMover = await reprogramarCita(candidato.mueve.citaId, fecha, candidato.mueve.aHora, usuarioActual?.uid, usuarioActual?.nombre);
+      if (!resMover.ok) {
+        mostrarAlerta('alert-form-cita-mostrador', resMover.error || 'No se pudo reubicar la cita existente.', 'error');
+        btn.textContent = 'Agendar'; btn.disabled = false;
+        return;
+      }
+    }
+
+    const datos = {
+      clienteId:     pid,
+      clienteNombre: document.getElementById('cm-paciente-nombre').value,
+      clienteCiudad: document.getElementById('cm-paciente-ciudad').value,
+      usuarioId:     usuarioActual?.uid || '',
+      usuarioNombre: usuarioActual?.nombre || '',
+      fecha,
+      hora:      candidato.hora,
+      tipo:      document.getElementById('cm-tipo').value,
+      notas:     document.getElementById('cm-notas').value,
+      mostrador: true,
+    };
+
+    const res = await agendarCita(datos);
+
+    if (res.ok) {
+      avisoCentral({ mensaje: 'Cita de mostrador agendada correctamente.', tipo: 'success' });
+      const fechaActual = document.getElementById('filter-fecha').value;
+      await Promise.all([
+        renderEstadisticas(),
+        ...(fechaActual ? [cargarSlotsFecha(fechaActual)] : []),
+      ]);
+      setTimeout(() => cerrarModal('modal-cita-mostrador'), 900);
+    } else {
+      mostrarAlerta('alert-form-cita-mostrador', res.error || 'No se pudo agendar la cita.', 'error');
     }
 
     btn.textContent = 'Agendar'; btn.disabled = false;
@@ -938,37 +1046,25 @@ function bindFormReprogramar() {
 
     if (res.ok) {
       cerrarModal('modal-reprogramar');
-      mostrarAlerta('alert-cita', 'Cita reprogramada correctamente.', 'success');
+      toast('Cita reprogramada correctamente.', 'success');
       await cargarSlotsFecha(document.getElementById('filter-fecha').value);
     } else {
       // ── Sugerir próximo horario libre ──────────────────
       const sugerencia = await sugerirHorario(fecha, hora);
-      const alertEl    = document.getElementById('alert-reprog');
 
       if (sugerencia) {
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia-reprog">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 8000);
-
-        document.getElementById('btn-usar-sugerencia-reprog')
-          ?.addEventListener('click', () => {
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
             setTimePicker('r-hora', sugerencia.hora);
             document.getElementById('r-fecha').value = sugerencia.fecha;
-            alertEl.textContent = ''; alertEl.className = '';
-          });
+          },
+        });
       } else {
-        alertEl.className   = 'alert alert-error';
-        alertEl.textContent = res.error + ' No hay horarios disponibles ese día.';
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 5000);
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
     }
 
@@ -1050,7 +1146,9 @@ async function cargarCronograma() {
     },
     onReprogramar: (id) => {
       citaReprogramarId = id;
-      document.getElementById('r-fecha').value = HOY;
+      const rFechaEl = document.getElementById('r-fecha');
+      rFechaEl.min   = HOY;
+      rFechaEl.value = HOY;
       abrirModal('modal-reprogramar');
     },
   });
@@ -1059,6 +1157,23 @@ async function cargarCronograma() {
 // ══════════════════════════════════════════════════════════
 // MODAL DE COBRO — registrar cobro de sesión
 // ══════════════════════════════════════════════════════════
+// ── Selector de método de pago (efectivo/nequi/daviplata) ──
+function _resetMetodoPago(grupoId) {
+  document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.metodo === 'efectivo'));
+}
+function _leerMetodoPago(grupoId) {
+  return document.querySelector(`#${grupoId} .metodo-pago-btn.active`)?.dataset.metodo || 'efectivo';
+}
+function _bindMetodoPagoGrupo(grupoId) {
+  document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+}
+
 function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar }) {
   _cobroPendiente = { citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar };
 
@@ -1072,6 +1187,7 @@ function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora
   document.getElementById('cobro-tarifa').value         = obtenerTarifaBaseActual();
   document.getElementById('cobro-meds-lista').innerHTML = '';
   document.getElementById('alert-cobro').innerHTML      = '';
+  _resetMetodoPago('cobro-metodo-grupo');
   actualizarResumenCobro();
   abrirModal('modal-cobro');
 }
@@ -1091,6 +1207,7 @@ function actualizarResumenCobro() {
 function bindModalCobro() {
   document.getElementById('cobro-tarifa')
     ?.addEventListener('input', actualizarResumenCobro);
+  _bindMetodoPagoGrupo('cobro-metodo-grupo');
 
   document.getElementById('btn-add-med')
     ?.addEventListener('click', () => {
@@ -1137,12 +1254,13 @@ function bindModalCobro() {
         tarifaBase:    tarifa,
         medicamentos,
         totalCobrado,
+        metodoPago:    _leerMetodoPago('cobro-metodo-grupo'),
       }, usuarioActual?.uid, usuarioActual?.nombre);
 
       cerrarModal('modal-cobro');
       btn.disabled = false;
       btn.textContent = 'Confirmar y completar';
-      mostrarAlerta('alert-cita', 'Cobro enviado. Quedará pendiente hasta que un administrador lo confirme.', 'success');
+      toast('Cobro enviado. Quedará pendiente hasta que un administrador lo confirme.', 'success');
 
       await _cobroPendiente.onConfirmar?.();
       _cobroPendiente = null;
@@ -1182,4 +1300,38 @@ function abrirModalCitaDesdeVoz(datos) {
     // Disparar el evento input para activar el autocomplete
     input.dispatchEvent(new Event('input'));
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// ASISTENTE IA — cancelar / reprogramar cita existente
+// ══════════════════════════════════════════════════════════
+async function cancelarCitaDesdeAsistente(cita) {
+  const motivo = await pedirMotivoCancelacion();
+  if (!motivo) return false;
+  const res = await cancelarCita(cita.id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
+  if (!res.ok) {
+    toast(res.error || 'No se pudo cancelar la cita.', 'error');
+    return false;
+  }
+  toast('Cita cancelada.', 'success');
+  await Promise.all([
+    renderEstadisticas(),
+    renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, false, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
+  ]);
+  const fechaFiltro = document.getElementById('filter-fecha')?.value;
+  if (fechaFiltro) await cargarSlotsFecha(fechaFiltro);
+  return true;
+}
+
+function reprogramarCitaDesdeAsistente(cita, nuevaFecha, nuevaHora) {
+  citaReprogramarId = cita.id;
+  const rFechaEl = document.getElementById('r-fecha');
+  const fechaInicial = (nuevaFecha && nuevaFecha >= HOY) ? nuevaFecha : HOY;
+  rFechaEl.min   = HOY;
+  rFechaEl.value = fechaInicial;
+  if (nuevaHora) setTimePicker('r-hora', nuevaHora);
+  abrirModal('modal-reprogramar');
 }

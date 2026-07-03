@@ -2,7 +2,7 @@
 // ACTUALIZADO: geografía Colombia ahora viene de colombiaService.js (api-colombia.com)
 import {
   collection, addDoc, updateDoc, deleteDoc, getDocs, getDoc,
-  doc, query, where, serverTimestamp
+  doc, query, where, orderBy, limit, startAfter, serverTimestamp
 } from "firebase/firestore";
 import { db } from "../../core/firebase";
 
@@ -162,6 +162,33 @@ export async function obtenerPacientesPorCiudad(ciudad, limite = 50) {
   } catch (error) {
     console.error("Error obteniendo pacientes por ciudad:", error);
     return { pacientes: [], hayMas: false, total: 0 };
+  }
+}
+
+// ── Obtener pacientes por página (50 en 50), ordenados a nivel de
+// Firestore ──────────────────────────────────────────────────
+// A diferencia de obtenerPacientesPorCiudad, esta SÍ limita en la propia
+// consulta — no lee la colección completa antes de recortar. Se usa para
+// "Mostrar todos" en Gestión de pacientes: primero muestra la página 1
+// (primeros 50 A-Z), y con `cursorDespuesDe` (el último documento de la
+// página anterior) trae la página siguiente, así hasta agotar la base.
+// Nota: orderBy() de Firestore ordena por código Unicode, no con
+// localeCompare('es') como el resto del código — aceptable porque los
+// nombres siempre se registran con mayúscula inicial en el alta de pacientes.
+export async function obtenerPacientesPaginados(limite = 50, cursorDespuesDe = null) {
+  try {
+    const restricciones = [orderBy("nombre"), limit(limite)];
+    if (cursorDespuesDe) restricciones.push(startAfter(cursorDespuesDe));
+    const q = query(collection(db, "clientes"), ...restricciones);
+    const snap = await getDocs(q);
+    return {
+      pacientes: snap.docs.map(d => ({ id: d.id, ...d.data() })),
+      ultimoDoc:  snap.docs.length ? snap.docs[snap.docs.length - 1] : null,
+      hayMas:     snap.docs.length === limite,
+    };
+  } catch (error) {
+    console.error("Error obteniendo pacientes paginados:", error);
+    return { pacientes: [], ultimoDoc: null, hayMas: false };
   }
 }
 

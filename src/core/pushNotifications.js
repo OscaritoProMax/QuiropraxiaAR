@@ -34,21 +34,21 @@ export async function initPushNotifications(usuario) {
       setDoc(doc(db, 'usuarios', uid), {
         fcmToken:            token.value,
         fcmTokenActualizado: new Date().toISOString(),
-      }, { merge: true }).catch((err) => console.error('Error guardando token FCM:', err));
+      }, { merge: true }).catch((err) => console.error('Error guardando token FCM:', err.code || err.message));
     });
 
     PushNotifications.addListener('registrationError', (err) => {
-      console.error('Error de registro push:', err);
+      console.error('Error de registro push:', err.code || err.message || err);
     });
 
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('Notificación push recibida en primer plano:', notification);
+    PushNotifications.addListener('pushNotificationReceived', () => {
+      console.log('Notificación push recibida en primer plano.');
     });
 
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      console.log('Notificación push tocada:', action.notification);
+    PushNotifications.addListener('pushNotificationActionPerformed', () => {
+      console.log('Notificación push tocada.');
     });
   } catch (error) {
-    console.error('Error inicializando push notifications:', error);
+    console.error('Error inicializando push notifications:', error.code || error.message);
   }
 }

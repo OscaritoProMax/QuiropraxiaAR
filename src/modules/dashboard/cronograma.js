@@ -9,8 +9,9 @@ import { obtenerCitasPorFecha, cambiarEstado, cancelarCita,
 import { getDocs, collection, query,
          where }                      from 'firebase/firestore';
 import { db }                         from '../../core/firebase.js';
-import { badgeEstado, HOY }           from '../../shared/helpers.js';
+import { badgeEstado, HOY, escapeHtml } from '../../shared/helpers.js';
 import { hora12Display }              from '../../shared/timePicker.js';
+import { confirmar }                  from '../../shared/interactions.js';
 import { mostrarHistorialCita }       from './ui.js';
 
 // ── Hora actual en formato "HH:MM" ────────────────────────
@@ -160,7 +161,14 @@ export async function renderCronograma({ onReprogramar, onCancelar, onCompletar,
 
   cont.querySelectorAll('[data-crono-cancelar]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('¿Cancelar esta cita?')) return;
+      const ok = await confirmar({
+        titulo: 'Cancelar cita',
+        mensaje: '¿Deseas cancelar esta cita?',
+        tipo: 'danger',
+        textoConfirmar: 'Sí, cancelar',
+        textoCancelar: 'Volver',
+      });
+      if (!ok) return;
       await onCancelar(btn.dataset.cronoCancelar);
       await renderCronograma({ onReprogramar, onCancelar, onCompletar, permitirCompletar });
     });
@@ -203,24 +211,25 @@ function tarjetaCita(cita, tipo, permitirCompletar = true) {
   return `
     <div class="crono-card"
       style="border-left:4px solid ${borderColor};background:${bgColor}"
-      data-cita-id="${cita.id}"
-      data-cliente-id="${cita.clienteId     || ''}"
-      data-cliente-ciudad="${cita.clienteCiudad || ''}"
-      data-tipo-sesion="${cita.tipo          || 'Ajuste general'}"
-      data-hora="${cita.hora}">
+      data-cita-id="${escapeHtml(cita.id)}"
+      data-cliente-id="${escapeHtml(cita.clienteId     || '')}"
+      data-cliente-ciudad="${escapeHtml(cita.clienteCiudad || '')}"
+      data-tipo-sesion="${escapeHtml(cita.tipo          || 'Ajuste general')}"
+      data-hora="${escapeHtml(cita.hora)}">
       <div class="crono-hora">${hora12Display(cita.hora)}</div>
       <div class="crono-info">
-        <div class="crono-nombre">${cita.clienteNombre}</div>
-        <div class="crono-meta">${cita.tipo} · ${cita.clienteCiudad || 'Ciudad no registrada'}</div>
-        ${cita.notas ? `<div class="crono-notas">"${cita.notas}"</div>` : ''}
+        <div class="crono-nombre">${escapeHtml(cita.clienteNombre)}</div>
+        <div class="crono-meta">${escapeHtml(cita.tipo)} · ${escapeHtml(cita.clienteCiudad || 'Ciudad no registrada')}</div>
+        ${cita.notas ? `<div class="crono-notas">"${escapeHtml(cita.notas)}"</div>` : ''}
       </div>
+      ${cita.mostrador ? '<span class="badge-mostrador">Mostrador</span>' : ''}
       ${badgeEstado(cita.estado)}
       <div class="crono-actions">
-        <button class="btn btn-gray btn-sm" data-crono-historial="${cita.id}" title="Ver información e historial">ℹ Info</button>
+        <button class="btn btn-gray btn-sm" data-crono-historial="${escapeHtml(cita.id)}" title="Ver información e historial">ℹ Info</button>
         ${esActiva ? `
-          <button class="btn btn-gray btn-sm"   data-crono-reprog="${cita.id}">↺ Reprogramar</button>
-          <button class="btn btn-danger btn-sm" data-crono-cancelar="${cita.id}">✕ Cancelar</button>
-          ${permitirCompletar ? `<button class="btn btn-soft btn-sm" data-crono-completar="${cita.id}">✓ Completar</button>` : ''}
+          <button class="btn btn-gray btn-sm"   data-crono-reprog="${escapeHtml(cita.id)}">↺ Reprogramar</button>
+          <button class="btn btn-danger btn-sm" data-crono-cancelar="${escapeHtml(cita.id)}">✕ Cancelar</button>
+          ${permitirCompletar ? `<button class="btn btn-soft btn-sm" data-crono-completar="${escapeHtml(cita.id)}">✓ Completar</button>` : ''}
         ` : ''}
       </div>
     </div>`;

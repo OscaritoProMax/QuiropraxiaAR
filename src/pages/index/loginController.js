@@ -71,7 +71,7 @@ export function initLogin() {
 
     } catch (err) {
       mostrarError("Error inesperado. Intenta de nuevo.");
-      console.error(err);
+      console.error(err?.code || err?.message);
     } finally {
       desbloquearBoton(btn);
     }
@@ -96,7 +96,7 @@ export function initLogin() {
 
     } catch (err) {
       mostrarError("Error al iniciar con Google. Intenta de nuevo.");
-      console.error(err);
+      console.error(err?.code || err?.message);
     } finally {
       btnGoogle.disabled    = false;
       btnGoogle.textContent = "Continuar con Google";

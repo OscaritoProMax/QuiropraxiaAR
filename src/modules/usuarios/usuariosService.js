@@ -11,7 +11,7 @@ import {
   reauthenticateWithCredential,
   reauthenticateWithPopup,
   GoogleAuthProvider,
-  updatePassword
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { db, auth } from '../../core/firebase.js';
 
@@ -96,27 +96,24 @@ export async function reautenticarAdminGoogle() {
   }
 }
 
-// ── Cambiar contraseña de otro usuario ────────────────────
-// Firebase no permite cambiar la contraseña de otro usuario desde el cliente.
-// La solución segura: iniciar sesión temporal con las credenciales del usuario,
-// cambiar su contraseña, y luego restaurar la sesión del admin.
-// NOTA: Esto requiere conocer la contraseña actual del usuario o usar Admin SDK.
-// Implementación: guardamos la nueva contraseña en Firestore (campo temporal)
-// y forzamos cambio en el próximo login. Para cambio inmediato se requiere Admin SDK.
-export async function forzarCambioPassword(uid, nuevaPassword) {
+// ── Restablecer contraseña de otro usuario ────────────────
+// Firebase no permite fijarle una contraseña a OTRO usuario desde el
+// cliente sin Admin SDK — cualquier intento de "escribirla" desde acá
+// (como hacía la versión anterior, guardándola en Firestore) queda en
+// texto plano y además nunca cambia la contraseña real de Firebase Auth.
+// El mecanismo correcto y seguro desde el cliente es enviar un correo de
+// restablecimiento: el propio usuario define su nueva contraseña desde
+// el enlace, y nunca queda expuesta a nadie más (ni al admin).
+export async function enviarResetPassword(email) {
   try {
-    if (!nuevaPassword || nuevaPassword.length < 6) {
-      return { ok: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
-    }
-    // Guardar flag en Firestore — el usuario deberá cambiarla al entrar
-    await updateDoc(doc(db, 'usuarios', uid), {
-      passwordTemporal:     nuevaPassword,   // campo temporal — borrar tras primer login
-      requiereCambioPass:   true,
-      ultimaModificacion:   serverTimestamp()
-    });
+    if (!email) return { ok: false, error: 'Este usuario no tiene un correo registrado.' };
+    await sendPasswordResetEmail(auth, email);
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: 'No se pudo programar el cambio de contraseña.' };
+    if (error.code === 'auth/user-not-found') {
+      return { ok: false, error: 'No existe una cuenta de Firebase Auth con ese correo.' };
+    }
+    return { ok: false, error: 'No se pudo enviar el correo de restablecimiento.' };
   }
 }
 

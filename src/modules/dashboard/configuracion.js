@@ -11,6 +11,7 @@ import { obtenerCitasPorFecha, ESTADOS,
          cargarHorarios, HORARIOS }            from '../citas/citasService.js';
 import { HOY }                                 from '../../shared/helpers.js';
 import { hora12Display, updateTimePicker }     from '../../shared/timePicker.js';
+import { solicitarPermisoNotificaciones }      from '../../shared/notificaciones.js';
 
 // ══════════════════════════════════════════════════════════
 // PUNTO DE ENTRADA
@@ -85,7 +86,9 @@ function initToggles() {
 
     sw.addEventListener('click', () => {
       sw.classList.toggle('toggle-on');
-      localStorage.setItem(key, sw.classList.contains('toggle-on') ? 'on' : 'off');
+      const activado = sw.classList.contains('toggle-on');
+      localStorage.setItem(key, activado ? 'on' : 'off');
+      if (activado) solicitarPermisoNotificaciones();
     });
   });
 }
@@ -191,7 +194,7 @@ function initNavConfiguracion() {
 
     const t = document.getElementById('topbar-title');
     const s = document.getElementById('topbar-sub');
-    if (t) t.textContent = 'Configuracion';
+    if (t) t.textContent = 'Configuración';
     if (s) s.textContent = 'Ajustes del sistema';
 
     const actions = document.getElementById('topbar-actions');

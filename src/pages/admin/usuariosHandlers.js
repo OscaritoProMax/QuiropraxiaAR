@@ -10,8 +10,9 @@ import { crearUsuario }              from '../../core/authService.js';
 import { obtenerUsuarios, cambiarRol,
          toggleActivoUsuario, eliminarUsuario,
          reautenticarAdmin, reautenticarAdminGoogle,
-         esUsuarioGoogle, forzarCambioPassword } from '../../modules/usuarios/usuariosService.js';
-import { mostrarAlerta, abrirModal, cerrarModal } from '../../shared/helpers.js';
+         esUsuarioGoogle, enviarResetPassword } from '../../modules/usuarios/usuariosService.js';
+import { mostrarAlerta, abrirModal, cerrarModal, escapeHtml } from '../../shared/helpers.js';
+import { confirmar, toast }          from '../../shared/interactions.js';
 import { renderPerfil }              from '../../modules/dashboard/ui.js';
 
 // ── Estado ────────────────────────────────────────────────
@@ -74,16 +75,16 @@ async function cargarTablaUsuarios() {
   }
 
   tbody.innerHTML = visibles.map(u => `
-    <tr data-uid="${u.id}" class="${!u.activo ? 'usr-row-inactivo' : ''}">
+    <tr data-uid="${escapeHtml(u.id)}" class="${!u.activo ? 'usr-row-inactivo' : ''}">
       <td>
-        <div class="usr-avatar">${iniciales(u.nombre)}</div>
+        <div class="usr-avatar">${escapeHtml(iniciales(u.nombre))}</div>
       </td>
       <td>
-        <div class="usr-nombre">${u.nombre}</div>
-        <div class="usr-email">${u.email}</div>
+        <div class="usr-nombre">${escapeHtml(u.nombre)}</div>
+        <div class="usr-email">${escapeHtml(u.email)}</div>
       </td>
       <td>
-        <span class="badge ${badgeRol(u.rol)}">${u.rol}</span>
+        <span class="badge ${badgeRol(u.rol)}">${escapeHtml(u.rol)}</span>
       </td>
       <td>
         <span class="badge ${u.activo ? 'badge-success' : 'badge-danger'}">
@@ -92,23 +93,36 @@ async function cargarTablaUsuarios() {
       </td>
       <td>
         <div class="usr-acciones">
-          <button class="btn btn-soft btn-sm" onclick="abrirCambioRol('${u.id}','${u.rol}','${u.nombre}')">
+          <button class="btn btn-soft btn-sm" data-accion="rol" data-uid="${escapeHtml(u.id)}">
             Cambiar rol
           </button>
-          <button class="btn btn-soft btn-sm" onclick="abrirCambioPass('${u.id}','${u.nombre}')">
+          <button class="btn btn-soft btn-sm" data-accion="pass" data-uid="${escapeHtml(u.id)}">
             Contraseña
           </button>
           <button class="btn ${u.activo ? 'btn-yellow' : 'btn-soft'} btn-sm"
-                  onclick="confirmarToggle('${u.id}','${u.activo}','${u.nombre}')">
+                  data-accion="toggle" data-uid="${escapeHtml(u.id)}">
             ${u.activo ? 'Desactivar' : 'Activar'}
           </button>
           ${u.id !== usuarioActual?.id ? `
-          <button class="btn btn-danger btn-sm" onclick="confirmarEliminar('${u.id}','${u.nombre}')">
+          <button class="btn btn-danger btn-sm" data-accion="eliminar" data-uid="${escapeHtml(u.id)}">
             Eliminar
           </button>` : '<span class="usr-yo-tag">(tú)</span>'}
         </div>
       </td>
     </tr>`).join('');
+
+  tbody.querySelectorAll('[data-accion]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const usuario = listaUsuarios.find(u => u.id === btn.dataset.uid);
+      if (!usuario) return;
+      switch (btn.dataset.accion) {
+        case 'rol':      abrirCambioRol(usuario); break;
+        case 'pass':     abrirCambioPass(usuario); break;
+        case 'toggle':   confirmarToggle(usuario); break;
+        case 'eliminar': confirmarEliminar(usuario); break;
+      }
+    });
+  });
 }
 
 function iniciales(nombre) {
@@ -252,13 +266,13 @@ function bindModalReauth() {
 // ══════════════════════════════════════════════════════════
 // CAMBIAR ROL
 // ══════════════════════════════════════════════════════════
-window.abrirCambioRol = function(uid, rolActual, nombre) {
-  uidObjetivo = uid;
-  document.getElementById('cambio-rol-nombre').textContent = nombre;
-  document.getElementById('nuevo-rol-select').value = rolActual;
+function abrirCambioRol(usuario) {
+  uidObjetivo = usuario.id;
+  document.getElementById('cambio-rol-nombre').textContent = usuario.nombre;
+  document.getElementById('nuevo-rol-select').value = usuario.rol;
   document.getElementById('alert-cambio-rol').innerHTML = '';
   abrirModal('modal-cambio-rol');
-};
+}
 
 function bindModalCambioRol() {
   document.getElementById('btn-confirmar-rol')
@@ -267,7 +281,7 @@ function bindModalCambioRol() {
       pedirClave(async () => {
         const res = await cambiarRol(uidObjetivo, nuevoRol);
         if (res.ok) {
-          mostrarAlerta('alert-global', 'Rol actualizado correctamente.', 'success');
+          toast('Rol actualizado correctamente.', 'success');
           cerrarModal('modal-cambio-rol');
           await cargarTablaUsuarios();
         } else {
@@ -280,26 +294,27 @@ function bindModalCambioRol() {
 // ══════════════════════════════════════════════════════════
 // CAMBIAR CONTRASEÑA
 // ══════════════════════════════════════════════════════════
-window.abrirCambioPass = function(uid, nombre) {
-  uidObjetivo = uid;
-  document.getElementById('cambio-pass-nombre').textContent = nombre;
-  document.getElementById('nueva-password').value = '';
+let emailObjetivo = null;
+
+function abrirCambioPass(usuario) {
+  uidObjetivo   = usuario.id;
+  emailObjetivo = usuario.email;
+  document.getElementById('cambio-pass-nombre').textContent = usuario.nombre;
+  document.getElementById('cambio-pass-email').textContent  = usuario.email || 'sin correo';
   document.getElementById('alert-cambio-pass').innerHTML = '';
   abrirModal('modal-cambio-pass');
-};
+}
 
 function bindModalCambioPass() {
   document.getElementById('btn-confirmar-pass')
     ?.addEventListener('click', () => {
-      const nuevaPass = document.getElementById('nueva-password').value;
-      if (!nuevaPass || nuevaPass.length < 6) {
-        mostrarAlerta('alert-cambio-pass', 'Mínimo 6 caracteres.', 'error');
-        return;
-      }
       pedirClave(async () => {
-        const res = await forzarCambioPassword(uidObjetivo, nuevaPass);
+        const btn = document.getElementById('btn-confirmar-pass');
+        btn.disabled = true; btn.textContent = 'Enviando...';
+        const res = await enviarResetPassword(emailObjetivo);
+        btn.disabled = false; btn.textContent = 'Enviar enlace';
         if (res.ok) {
-          mostrarAlerta('alert-global', 'Contraseña actualizada. El usuario deberá iniciar sesión de nuevo.', 'success');
+          toast('Enlace de restablecimiento enviado.', 'success');
           cerrarModal('modal-cambio-pass');
         } else {
           mostrarAlerta('alert-cambio-pass', res.error, 'error');
@@ -311,32 +326,43 @@ function bindModalCambioPass() {
 // ══════════════════════════════════════════════════════════
 // TOGGLE ACTIVO / INACTIVO
 // ══════════════════════════════════════════════════════════
-window.confirmarToggle = function(uid, activoActual, nombre) {
-  const accion = activoActual === 'true' ? 'desactivar' : 'activar';
-  if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} a ${nombre}?`)) return;
+async function confirmarToggle(usuario) {
+  const accion = usuario.activo ? 'desactivar' : 'activar';
+  const ok = await confirmar({
+    titulo: `${accion.charAt(0).toUpperCase() + accion.slice(1)} usuario`,
+    mensaje: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} a ${usuario.nombre}?`,
+    tipo: 'warning',
+    textoConfirmar: accion.charAt(0).toUpperCase() + accion.slice(1),
+  });
+  if (!ok) return;
   pedirClave(async () => {
-    const res = await toggleActivoUsuario(uid, activoActual === 'true');
+    const res = await toggleActivoUsuario(usuario.id, usuario.activo);
     if (res.ok) {
-      mostrarAlerta('alert-global',
-        `Usuario ${res.nuevoEstado ? 'activado' : 'desactivado'} correctamente.`, 'success');
+      toast(`Usuario ${res.nuevoEstado ? 'activado' : 'desactivado'} correctamente.`, 'success');
       await cargarTablaUsuarios();
     }
   });
-};
+}
 
 // ══════════════════════════════════════════════════════════
 // ELIMINAR USUARIO
 // ══════════════════════════════════════════════════════════
-window.confirmarEliminar = function(uid, nombre) {
-  if (!confirm(`¿Eliminar a ${nombre}? Esta acción desactiva el acceso permanentemente.`)) return;
+async function confirmarEliminar(usuario) {
+  const ok = await confirmar({
+    titulo: 'Eliminar usuario',
+    mensaje: `¿Eliminar a ${usuario.nombre}?\nEsta acción desactiva el acceso permanentemente.`,
+    tipo: 'danger',
+    textoConfirmar: 'Eliminar',
+  });
+  if (!ok) return;
   pedirClave(async () => {
-    const res = await eliminarUsuario(uid);
+    const res = await eliminarUsuario(usuario.id);
     if (res.ok) {
-      mostrarAlerta('alert-global', `${nombre} eliminado del sistema.`, 'success');
+      toast(`${usuario.nombre} eliminado del sistema.`, 'success');
       await cargarTablaUsuarios();
     }
   });
-};
+}
 
 // ══════════════════════════════════════════════════════════
 // LOGOUT

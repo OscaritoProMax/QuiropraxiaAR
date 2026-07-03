@@ -31,11 +31,11 @@ import {
 }                                                    from '../pacientes/colombiaService.js';
 
 import { registrarPago, obtenerPagosHoy, obtenerPagosMes,
-         calcularTotalesDia, calcularTotalesMes,
+         calcularTotalesDia, calcularTotalesMes, calcularTotalesPorMetodo,
          formatCOP, TARIFA_BASE, obtenerConfiguracion,
          obtenerTarifaBaseActual }                                  from '../finanzas/pagosService.js';
 import { agendarCita, cancelarCita, reprogramarCita,
-         cambiarEstado, sugerirHorario, ESTADOS, HORARIOS, cargarHorarios,
+         cambiarEstado, sugerirHorario, sugerirHorariosMostrador, ESTADOS, HORARIOS, cargarHorarios,
          generarHorarios, viajeEnFecha,
          obtenerCitasPendientesConfirmacion, confirmarPagoPendiente,
          rechazarPagoPendiente }                                    from '../citas/citasService.js';
@@ -43,12 +43,13 @@ import { agendarCita, cancelarCita, reprogramarCita,
 import { mostrarAlerta, abrirModal, cerrarModal,
          crearBtn, HOY, MANANA,
          bindSelectPais, pedirMotivoCancelacion }    from '../../shared/helpers.js';
+import { confirmar, toast, avisoCentral, initNavGrupos } from '../../shared/interactions.js';
 import { initTimePicker, updateTimePicker,
          setTimePicker, hora12Display }              from '../../shared/timePicker.js';
 import { renderPerfil, renderEstadisticas, renderCitasHoy,
          renderSlots, renderPacientes, renderPills,
          renderResultadosBusqueda, renderFormEditar,
-         renderUsuarios }                           from './ui.js';
+         renderUsuarios, bindTabsCitas, abrirModalPaciente } from './ui.js';
 
 // ══════════════════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -73,15 +74,24 @@ export async function initDashboard() {
   poblarSelectsCiudades();   // ahora async — carga API en paralelo
   poblarSelectsHorarios();
   bindModalCobro();
+  bindModalRevisarPendiente();
   bindNavegacion();
+  initNavGrupos([
+    { id: 'citas',    label: 'Citas',    selectores: ['[data-view="citas"]', '[data-view="cronograma"]', '[data-view="semana"]'] },
+    { id: 'finanzas', label: 'Finanzas', selectores: ['[data-view="finanzas"]', '[data-view="informes"]'] },
+    { id: 'sistema',  label: 'Sistema',  selectores: ['#menu-usuarios', '[data-view="configuracion"]'] },
+  ]);
   bindModalesGlobal();
   bindLogout();
   bindFiltrosFecha();
+  bindTabsCitas();
   bindBusquedaPaciente();
   bindEditorPaciente();
   bindEliminarPaciente();
   bindFormPaciente();
   bindFormCita();
+  bindFormCitaMostrador();
+  document.getElementById('fab-cita-mostrador')?.addEventListener('click', () => abrirModalCitaMostrador());
   bindFormReprogramar();
   bindFormUsuario();
   bindCronograma();
@@ -199,28 +209,37 @@ async function initAuth() {
     renderDashboardPaneles(
       completarCitaHoy,
       abrirModalCitaDesdeVoz,
-      true
+      true,
+      true,
+      true,
+      { onCancelarCita: cancelarCitaDesdeAsistente, onReprogramarCita: reprogramarCitaDesdeAsistente }
     ),
     cargarPacientesCache(),
     obtenerConfiguracion(),
   ]);
+
+  // No se espera: que aparezca un instante después de revelar el dashboard
+  // se siente más natural que bloquear el splash por esta consulta extra.
+  revisarPendientesDashboard();
 }
 
 async function completarCitaHoy(citaId) {
-  const card = document.querySelector(`[data-crono-completar="${citaId}"]`)?.closest('.crono-card, .slot-item')
-            || document.querySelector(`[data-cita-id="${citaId}"]`);
+  // btn-completar-foco es el único botón "Completar" del panel de cita
+  // en curso del dashboard — su tarjeta es .dash-cita-card (ver ui.js).
+  const card = document.getElementById('btn-completar-foco')?.closest('.dash-cita-card');
   abrirModalCobro({
     citaId,
     clienteId:     card?.dataset?.clienteId     || '',
-    clienteNombre: card?.querySelector('.crono-nombre, .slot-nombre')?.textContent?.trim() || '',
+    clienteNombre: card?.querySelector('.dash-cita-nombre')?.textContent?.trim() || '',
     clienteCiudad: card?.dataset?.clienteCiudad || '',
-    hora:          card?.dataset?.hora || card?.querySelector('.crono-hora, .slot-hora')?.textContent?.trim() || '',
-    tipoSesion:    card?.dataset?.tipoSesion
-                || card?.querySelector('.crono-meta, .slot-tipo')?.textContent?.split('·')[0]?.trim()
-                || 'Ajuste general',
+    hora:          card?.dataset?.hora || '',
+    tipoSesion:    card?.dataset?.tipoSesion || 'Ajuste general',
     onConfirmar: async () => {
       await Promise.all([
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true, true, true, {
+          onCancelarCita: cancelarCitaDesdeAsistente,
+          onReprogramarCita: reprogramarCitaDesdeAsistente,
+        }),
         renderEstadisticas(),
       ]);
     }
@@ -251,8 +270,10 @@ async function mostrarVista(vista, btn) {
   document.getElementById('view-' + vista)?.classList.add('active');
   if (btn) btn.classList.add('menu-active');
 
+  // El título del topbar solo dice "Quiromasajes" en el Dashboard — en el
+  // resto de módulos vuelve a mostrar el nombre del módulo actual.
   const titulos = {
-    dashboard:   ['Dashboard',             'Resumen del día'],
+    dashboard:   ['Quiromasajes',          'Resumen del día'],
     pacientes:   ['Gestión de pacientes',  'Código 009 — Registro, búsqueda y filtro por ciudad'],
     citas:       ['Gestión de citas',      'Código 002 — Agenda de horarios'],
     cronograma:  ['Cronograma del día',    'Citas de hoy por estado y hora'],
@@ -268,28 +289,35 @@ async function mostrarVista(vista, btn) {
   const actions = document.getElementById('topbar-actions');
   actions.innerHTML = '';
 
+  // FAB de "cita de mostrador" — solo visible dentro de la vista Citas.
+  const fabMostrador = document.getElementById('fab-cita-mostrador');
+  if (fabMostrador) fabMostrador.style.display = vista === 'citas' ? 'flex' : 'none';
+
   if (vista === 'dashboard') {
     await Promise.all([
       renderEstadisticas(),
-      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
+      renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true, true, true, {
+          onCancelarCita: cancelarCitaDesdeAsistente,
+          onReprogramarCita: reprogramarCitaDesdeAsistente,
+        }),
     ]);
+    revisarPendientesDashboard();
   }
 
  if (vista === 'pacientes') {
     await renderGestorPacientes({
       onRegistrar: () => abrirModal('modal-paciente'),
  
-      onActualizar: async (id, datos) => {
-        const res = await actualizarPaciente(id, datos);
-        if (res.ok) await cargarPacientesCache();
-        return res;
-      },
- 
+      // abrirModalPaciente() ya guarda directamente — este hook solo
+      // refresca la caché de pacientes (usada por los autocompletados).
+      onActualizar: async () => { await cargarPacientesCache(); },
+
       onEliminar: async (id) => {
         const res = await eliminarPaciente(id);
         if (res.ok) await cargarPacientesCache();
         return res;
       },
+      esAdmin: true,
     });
   }
 
@@ -363,17 +391,14 @@ async function cargarSlotsFecha(fecha) {
     ...opcionesViaje,
     onAgendar:   (hora, fecha) => abrirModalCita(hora, fecha),
      onCompletar: async (id, f) => {
-       const slot = document.querySelector(`[data-completar="${id}"]`)?.closest('.slot-item')
-                 || document.querySelector(`[data-cita-id="${id}"]`);
+       const slot = document.querySelector(`[data-completar="${id}"]`)?.closest('.slot-row');
        abrirModalCobro({
          citaId:        id,
          clienteId:     slot?.dataset?.clienteId     || '',
-         clienteNombre: slot?.querySelector('.slot-nombre, .crono-nombre')?.textContent?.trim() || '',
+         clienteNombre: slot?.querySelector('.slot-name')?.textContent?.trim() || '',
          clienteCiudad: slot?.dataset?.clienteCiudad || '',
-         hora:          slot?.dataset?.hora || f,
-         tipoSesion:    slot?.dataset?.tipoSesion
-                     || slot?.querySelector('.slot-tipo, .crono-meta')?.textContent?.split('·')[0]?.trim()
-                     || 'Ajuste general',
+         hora:          slot?.dataset?.hora || '',
+         tipoSesion:    slot?.dataset?.tipoSesion || 'Ajuste general',
         onConfirmar:   async () => {
           await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
         }
@@ -388,115 +413,10 @@ async function cargarSlotsFecha(fecha) {
       const motivo = await pedirMotivoCancelacion();
       if (!motivo) return;
       await cancelarCita(id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
-      mostrarAlerta('alert-cita', 'Cita cancelada.', 'success');
+      toast('Cita cancelada.', 'success');
       await Promise.all([cargarSlotsFecha(f), renderEstadisticas()]);
     },
-    onVerPaciente: (id) => abrirPanelPacienteCita(id),
-  });
-}
-
-async function abrirPanelPacienteCita(pacienteId) {
-  const panel = document.getElementById('panel-paciente-cita');
-  if (!panel) return;
-
-  panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary)">
-    <div style="font-size:13px;color:var(--text-muted)">Cargando datos del paciente...</div>
-  </div>`;
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-  const pac = await obtenerPacientePorId(pacienteId);
-  if (!pac) {
-    panel.innerHTML = `<div style="margin-top:16px;padding:14px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px">
-      <div style="font-size:13px;color:var(--danger)">No se encontró el paciente.</div>
-    </div>`;
-    return;
-  }
-
-  panel.innerHTML = `
-    <div style="margin-top:16px;background:var(--th-card);border:1px solid var(--th-card-border);border-radius:12px;border-left:4px solid var(--primary);overflow:hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--th-divider)">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${pac.nombre.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;color:var(--th-text)">${pac.nombre}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${pac.telefono || '—'} · ${pac.ciudad || 'Sin ciudad'}</div>
-          </div>
-        </div>
-        <button id="ppc-cerrar" style="background:none;border:1px solid var(--th-card-border);border-radius:7px;width:28px;height:28px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:16px">×</button>
-      </div>
-      <div style="padding:16px 18px">
-        <div id="alert-ppc" style="margin-bottom:10px"></div>
-        <div class="form-row-2col">
-          <div class="form-group">
-            <label class="form-label">Nombre completo</label>
-            <input class="input-text" id="ppc-nombre" value="${pac.nombre || ''}"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Teléfono <span style="font-weight:400;color:var(--text-muted);font-size:11px">(no editable)</span></label>
-            <input class="input-text" value="${pac.telefono || ''}" disabled style="opacity:.6;cursor:not-allowed"/>
-          </div>
-        </div>
-        <div class="form-row-2col">
-          <div class="form-group">
-            <label class="form-label">Documento</label>
-            <input class="input-text" id="ppc-doc" value="${pac.documento || ''}"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Correo</label>
-            <input class="input-text" id="ppc-email" type="email" value="${pac.email || ''}"/>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Ciudad de origen</label>
-          <div class="origen-selects">
-            <select class="input-text" id="ppc-dpto"><option value="">Cargando...</option></select>
-            <select class="input-text" id="ppc-ciudad" disabled><option value="">Ciudad...</option></select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Condición / motivo de consulta</label>
-          <input class="input-text" id="ppc-condicion" value="${pac.condicion || ''}" placeholder="Ej: Dolor lumbar crónico"/>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
-          <button class="btn btn-gray btn-sm" id="ppc-cancelar">Cancelar</button>
-          <button class="btn btn-primary btn-sm" id="ppc-guardar" data-id="${pac.id}">Guardar cambios</button>
-        </div>
-      </div>
-    </div>`;
-
-  // Cargar selects de ciudad con la API
-  let _getPpcUbicacion = () => pac.ciudad || '';
-  const dptoEl   = document.getElementById('ppc-dpto');
-  const ciudadEl = document.getElementById('ppc-ciudad');
-  _getPpcUbicacion = await inicializarSelectsUbicacion(dptoEl, ciudadEl);
-  if (pac.ciudad) await restaurarUbicacion(dptoEl, ciudadEl, pac.ciudad);
-
-  document.getElementById('ppc-cerrar')?.addEventListener('click', () => { panel.innerHTML = ''; });
-  document.getElementById('ppc-cancelar')?.addEventListener('click', () => { panel.innerHTML = ''; });
-
-  document.getElementById('ppc-guardar')?.addEventListener('click', async () => {
-    const btn = document.getElementById('ppc-guardar');
-    btn.textContent = 'Guardando...'; btn.disabled = true;
-    const datos = {
-      nombre:    document.getElementById('ppc-nombre')?.value.trim(),
-      documento: document.getElementById('ppc-doc')?.value.trim(),
-      email:     document.getElementById('ppc-email')?.value.trim(),
-      condicion: document.getElementById('ppc-condicion')?.value.trim(),
-      ciudad:    _getPpcUbicacion(),
-    };
-    if (!datos.nombre) {
-      mostrarAlerta('alert-ppc', 'El nombre es obligatorio.', 'error');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-      return;
-    }
-    const res = await actualizarPaciente(pac.id, datos);
-    if (res.ok) {
-      mostrarAlerta('alert-ppc', 'Paciente actualizado correctamente.', 'success');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-    } else {
-      mostrarAlerta('alert-ppc', res.error || 'Error al guardar.', 'error');
-      btn.textContent = 'Guardar cambios'; btn.disabled = false;
-    }
+    onVerPaciente: (id) => abrirModalPaciente(id),
   });
 }
 
@@ -656,15 +576,16 @@ function bindEliminarPaciente() {
     const lista = await buscarPacientes(q);
     renderResultadosBusqueda('resultados-eliminar', lista,
       async (paciente) => {
-        const confirmar = confirm(
-          `¿Eliminar permanentemente a "${paciente.nombre}" (Tel: ${paciente.telefono || '—'})?
-
-Esta acción no se puede deshacer.`
-        );
-        if (!confirmar) return;
+        const ok = await confirmar({
+          titulo: 'Eliminar paciente',
+          mensaje: `¿Eliminar permanentemente a "${paciente.nombre}" (Tel: ${paciente.telefono || '—'})?\nEsta acción no se puede deshacer.`,
+          tipo: 'danger',
+          textoConfirmar: 'Eliminar',
+        });
+        if (!ok) return;
         const res = await eliminarPaciente(paciente.id);
         if (res.ok) {
-          mostrarAlerta('alert-eliminar-pac', `Paciente "${paciente.nombre}" eliminado.`, 'success');
+          toast(`Paciente "${paciente.nombre}" eliminado.`, 'success');
           document.getElementById('resultados-eliminar').innerHTML = '';
           document.getElementById('search-pac-eliminar').value = '';
         } else {
@@ -747,10 +668,215 @@ function abrirModalCita(horaPreseleccionada = null, fechaPreseleccionada = null)
   abrirModal('modal-cita');
 }
 
+// ══════════════════════════════════════════════════════════
+// MODAL CITA DE MOSTRADOR — paciente que llega sin cita previa.
+// A diferencia del modal normal, la hora no sale de un select con la
+// grilla fija: se calcula con sugerirHorariosMostrador() (huecos entre
+// citas ya agendadas + hasta 1h antes/después de la jornada) y se elige
+// entre los "chips" resultantes.
+// ══════════════════════════════════════════════════════════
+let _cmCandidatosActuales  = [];
+let _cmHorarioSeleccionado = null;
+
+function abrirModalCitaMostrador() {
+  document.getElementById('cm-buscar-pac').value      = '';
+  document.getElementById('cm-paciente-id').value     = '';
+  document.getElementById('cm-paciente-nombre').value = '';
+  document.getElementById('cm-paciente-ciudad').value = '';
+  document.getElementById('cm-pac-sugerencias').style.display = 'none';
+  document.getElementById('cm-notas').value = '';
+  document.getElementById('alert-form-cita-mostrador').innerHTML = '';
+  _cmHorarioSeleccionado = null;
+
+  const fechaFiltro = document.getElementById('filter-fecha')?.value || HOY;
+  const inputFecha  = document.getElementById('cm-fecha');
+  inputFecha.min    = HOY;
+  inputFecha.value  = fechaFiltro < HOY ? HOY : fechaFiltro;
+
+  _cargarHorariosMostrador(inputFecha.value);
+  inputFecha.onchange = () => _cargarHorariosMostrador(inputFecha.value);
+
+  abrirModal('modal-cita-mostrador');
+}
+
+async function _cargarHorariosMostrador(fecha) {
+  const cont = document.getElementById('cm-horarios');
+  cont.innerHTML = '<div class="empty-state">Cargando horarios...</div>';
+  _cmHorarioSeleccionado = null;
+  document.getElementById('cm-hora-sel').value = '';
+
+  const candidatos = await sugerirHorariosMostrador(fecha);
+  _cmCandidatosActuales = candidatos;
+
+  if (!candidatos.length) {
+    cont.innerHTML = '<div class="empty-state">No hay horarios disponibles para citas de mostrador este día.</div>';
+    return;
+  }
+
+  const conIdx     = candidatos.map((c, idx) => ({ ...c, idx }));
+  const extendidos = conIdx.filter(c => c.tipo === 'extendido');
+  const huecos      = conIdx.filter(c => c.tipo === 'hueco');
+
+  let html = '';
+  if (extendidos.length) {
+    html += `<div class="cm-horarios-grupo-label">Fuera de jornada (hasta 1h antes/después)</div>
+      <div class="cm-horarios-chips">${extendidos.map(_chipHorarioHtml).join('')}</div>`;
+  }
+  if (huecos.length) {
+    html += `<div class="cm-horarios-grupo-label" style="margin-top:6px">Entre citas ya agendadas</div>
+      <div class="cm-horarios-chips">${huecos.map(_chipHorarioHtml).join('')}</div>`;
+  }
+  cont.innerHTML = html;
+
+  cont.querySelectorAll('[data-idx]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      cont.querySelectorAll('.cm-horario-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      _cmHorarioSeleccionado = _cmCandidatosActuales[Number(chip.dataset.idx)];
+      document.getElementById('cm-hora-sel').value = _cmHorarioSeleccionado.hora;
+    });
+  });
+}
+
+function _chipHorarioHtml(c) {
+  return `<button type="button" class="cm-horario-chip" data-idx="${c.idx}">
+    ${hora12Display(c.hora)}
+    ${c.mueve ? `<span class="cm-horario-chip-mueve">mueve a ${c.mueve.clienteNombre} de ${hora12Display(c.mueve.deHora)}</span>` : ''}
+  </button>`;
+}
+
+function bindFormCitaMostrador() {
+  const inputBuscar = document.getElementById('cm-buscar-pac');
+  const sugerencias = document.getElementById('cm-pac-sugerencias');
+
+  inputBuscar.addEventListener('input', async () => {
+    const q = inputBuscar.value.trim();
+    if (q.length < 2) { sugerencias.style.display = 'none'; return; }
+
+    const res = await buscarPacientes(q);
+    if (!res.length) {
+      sugerencias.innerHTML = `
+        <div style="padding:10px 14px;font-size:13px;color:#8492a6">
+          No encontrado — regístralo primero en "Pacientes" o desde "+ Agendar cita".
+        </div>`;
+      sugerencias.style.display = 'block';
+      return;
+    }
+
+    sugerencias.innerHTML = res.map(p => `
+      <div class="sugerencia-item"
+        data-id="${p.id}" data-nombre="${p.nombre}" data-ciudad="${p.ciudad || ''}"
+        style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5">
+        <strong>${p.nombre}</strong>
+        <span style="color:#8492a6"> · ${p.telefono || p.documento || '—'} · ${p.ciudad || '—'}</span>
+      </div>`).join('');
+    sugerencias.style.display = 'block';
+
+    sugerencias.querySelectorAll('.sugerencia-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.getElementById('cm-paciente-id').value     = item.dataset.id;
+        document.getElementById('cm-paciente-nombre').value = item.dataset.nombre;
+        document.getElementById('cm-paciente-ciudad').value = item.dataset.ciudad || '';
+        inputBuscar.value = item.dataset.nombre;
+        sugerencias.style.display = 'none';
+      });
+      item.addEventListener('mouseover', () => { item.style.background = '#f0f7ff'; });
+      item.addEventListener('mouseout',  () => { item.style.background = ''; });
+    });
+  });
+
+  document.getElementById('btn-guardar-cita-mostrador').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-guardar-cita-mostrador');
+    const pid = document.getElementById('cm-paciente-id').value;
+    if (!pid) {
+      mostrarAlerta('alert-form-cita-mostrador', 'Selecciona un paciente primero.', 'error');
+      return;
+    }
+    if (!_cmHorarioSeleccionado) {
+      mostrarAlerta('alert-form-cita-mostrador', 'Selecciona un horario.', 'error');
+      return;
+    }
+
+    const fecha      = document.getElementById('cm-fecha').value;
+    const candidato  = _cmHorarioSeleccionado;
+
+    if (candidato.mueve) {
+      const ok = await confirmar({
+        titulo: 'Reubicar cita existente',
+        mensaje: `Para dejar el espacio parejo, la cita de ${candidato.mueve.clienteNombre} se moverá de las ${hora12Display(candidato.mueve.deHora)} a las ${hora12Display(candidato.mueve.aHora)}. ¿Continuar?`,
+        tipo: 'warning',
+        textoConfirmar: 'Sí, mover y agendar',
+        textoCancelar: 'Cancelar',
+      });
+      if (!ok) return;
+    }
+
+    btn.textContent = 'Agendando...'; btn.disabled = true;
+
+    if (candidato.mueve) {
+      const resMover = await reprogramarCita(candidato.mueve.citaId, fecha, candidato.mueve.aHora, usuarioActual?.uid, usuarioActual?.nombre);
+      if (!resMover.ok) {
+        mostrarAlerta('alert-form-cita-mostrador', resMover.error || 'No se pudo reubicar la cita existente.', 'error');
+        btn.textContent = 'Agendar'; btn.disabled = false;
+        return;
+      }
+    }
+
+    const datos = {
+      clienteId:     pid,
+      clienteNombre: document.getElementById('cm-paciente-nombre').value,
+      clienteCiudad: document.getElementById('cm-paciente-ciudad').value,
+      usuarioId:     usuarioActual?.uid || '',
+      usuarioNombre: usuarioActual?.nombre || '',
+      fecha,
+      hora:      candidato.hora,
+      tipo:      document.getElementById('cm-tipo').value,
+      notas:     document.getElementById('cm-notas').value,
+      mostrador: true,
+    };
+
+    const res = await agendarCita(datos);
+
+    if (res.ok) {
+      avisoCentral({ mensaje: 'Cita de mostrador agendada correctamente.', tipo: 'success' });
+      const fechaActual = document.getElementById('filter-fecha').value;
+      await Promise.all([
+        renderEstadisticas(),
+        ...(fechaActual ? [cargarSlotsFecha(fechaActual)] : []),
+      ]);
+      setTimeout(() => cerrarModal('modal-cita-mostrador'), 900);
+    } else {
+      mostrarAlerta('alert-form-cita-mostrador', res.error || 'No se pudo agendar la cita.', 'error');
+    }
+
+    btn.textContent = 'Agendar'; btn.disabled = false;
+  });
+}
 
 // ══════════════════════════════════════════════════════════
 // MODAL DE COBRO
 // ══════════════════════════════════════════════════════════
+// ── Selector de método de pago (efectivo/nequi/daviplata) — se reutiliza
+// igual en el modal de cobro directo y en el de revisar pendientes. ──
+function _resetMetodoPago(grupoId) {
+  document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.metodo === 'efectivo'));
+}
+function _leerMetodoPago(grupoId) {
+  return document.querySelector(`#${grupoId} .metodo-pago-btn.active`)?.dataset.metodo || 'efectivo';
+}
+function _labelMetodoPago(metodo) {
+  return { efectivo: 'Efectivo', nequi: 'Nequi', daviplata: 'Daviplata' }[metodo] || 'Efectivo';
+}
+function _bindMetodoPagoGrupo(grupoId) {
+  document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${grupoId} .metodo-pago-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+}
+
 function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar }) {
   _cobroPendiente = { citaId, clienteId, clienteNombre, clienteCiudad, hora, tipoSesion, onConfirmar };
 
@@ -764,6 +890,7 @@ function abrirModalCobro({ citaId, clienteId, clienteNombre, clienteCiudad, hora
   document.getElementById('cobro-tarifa').value         = obtenerTarifaBaseActual();
   document.getElementById('cobro-meds-lista').innerHTML = '';
   document.getElementById('alert-cobro').innerHTML      = '';
+  _resetMetodoPago('cobro-metodo-grupo');
   actualizarResumenCobro();
   abrirModal('modal-cobro');
 }
@@ -783,6 +910,7 @@ function actualizarResumenCobro() {
 function bindModalCobro() {
   document.getElementById('cobro-tarifa')
     ?.addEventListener('input', actualizarResumenCobro);
+  _bindMetodoPagoGrupo('cobro-metodo-grupo');
 
   document.getElementById('btn-add-med')
     ?.addEventListener('click', () => {
@@ -831,6 +959,7 @@ function bindModalCobro() {
         tipoSesion:    _cobroPendiente.tipoSesion,
         tarifaBase:    tarifa,
         medicamentos,
+        metodoPago:    _leerMetodoPago('cobro-metodo-grupo'),
         usuarioId:     usuarioActual?.uid,
       });
 
@@ -839,7 +968,7 @@ function bindModalCobro() {
       btn.textContent = 'Confirmar y completar';
 
       if (resPago.ok) {
-        mostrarAlerta('alert-global', `Cobro registrado: ${formatCOP(resPago.totalCobrado)}`, 'success');
+        toast(`Cobro registrado: ${formatCOP(resPago.totalCobrado)}`, 'success');
       }
 
       await _cobroPendiente.onConfirmar?.();
@@ -848,6 +977,170 @@ function bindModalCobro() {
 }
 
 window.actualizarResumenCobro = actualizarResumenCobro;
+
+// ══════════════════════════════════════════════════════════
+// REVISIÓN DE COBROS PENDIENTES (enviados por secretaria/call-center)
+// Se muestra automáticamente cada vez que el admin entra al dashboard,
+// y también se puede abrir manualmente desde Finanzas → Pendientes.
+// ══════════════════════════════════════════════════════════
+let _colaPendientes    = [];   // citas pendientes por revisar en esta sesión
+let _colaTotalInicial  = 0;    // tamaño de la cola al abrirse, para el contador "X de Y"
+let _revisionActual    = null; // cita que se está mostrando en el modal
+let _onRevisionResuelta = null; // callback tras aprobar/rechazar
+
+async function revisarPendientesDashboard() {
+  // No interrumpir una revisión que ya está en curso (p. ej. si el admin
+  // vuelve a hacer clic en "Dashboard" mientras el modal sigue abierto).
+  if (document.getElementById('modal-revisar-pendiente')?.classList.contains('open')) return;
+
+  const pendientes = await obtenerCitasPendientesConfirmacion();
+  if (!pendientes.length) return;
+  _colaPendientes   = pendientes;
+  _colaTotalInicial = pendientes.length;
+  mostrarSiguientePendienteEnCola();
+}
+
+function mostrarSiguientePendienteEnCola() {
+  if (!_colaPendientes.length) return;
+  const revisadas = _colaTotalInicial - _colaPendientes.length;
+  abrirRevisionPendiente(_colaPendientes[0], {
+    contador: _colaTotalInicial > 1 ? `${revisadas + 1} de ${_colaTotalInicial}` : null,
+    onResuelto: () => {
+      _colaPendientes.shift();
+      if (_colaPendientes.length) setTimeout(mostrarSiguientePendienteEnCola, 350);
+    },
+  });
+}
+
+function abrirRevisionPendiente(cita, { contador = null, onResuelto = null } = {}) {
+  _revisionActual     = cita;
+  _onRevisionResuelta = onResuelto;
+  const p = cita.pagoPendiente || {};
+
+  const contadorEl = document.getElementById('rp-contador');
+  contadorEl.style.display = contador ? 'inline-block' : 'none';
+  contadorEl.textContent   = contador || '';
+
+  document.getElementById('rp-cliente-nombre').textContent = cita.clienteNombre || 'Paciente';
+  document.getElementById('rp-meta').textContent = `${cita.fecha} · ${hora12Display(cita.hora)} · ${cita.tipo || p.tipoSesion || 'Ajuste general'}`;
+  document.getElementById('rp-enviado-por').textContent = p.enviadoPorNombre || '—';
+  document.getElementById('rp-metodo-pago').textContent = _labelMetodoPago(p.metodoPago);
+  document.getElementById('rp-tipo-display').value = p.tipoSesion || cita.tipo || 'Ajuste general';
+  document.getElementById('rp-tarifa').value = p.tarifaBase ?? 0;
+  document.getElementById('alert-rp').innerHTML = '';
+  renderMedsPendienteForm(p.medicamentos || []);
+  actualizarResumenPendiente();
+  abrirModal('modal-revisar-pendiente');
+}
+
+function renderMedsPendienteForm(medicamentos) {
+  const lista = document.getElementById('rp-meds-lista');
+  lista.innerHTML = '';
+  medicamentos.forEach(m => agregarFilaMedPendiente(m.nombre, m.precio));
+}
+
+function agregarFilaMedPendiente(nombre = '', precio = '') {
+  const lista = document.getElementById('rp-meds-lista');
+  const fila  = document.createElement('div');
+  fila.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+  fila.innerHTML = `
+    <input class="input-text rp-med-nombre" placeholder="Nombre del ítem" style="flex:2" type="text"/>
+    <input class="input-text rp-med-precio" placeholder="Precio $" style="flex:1" type="number" min="0"/>
+    <button class="btn btn-danger btn-sm" type="button" style="padding:4px 8px">✕</button>`;
+  fila.querySelector('.rp-med-nombre').value  = nombre;
+  fila.querySelector('.rp-med-precio').value  = precio;
+  fila.querySelector('.rp-med-precio').addEventListener('input', actualizarResumenPendiente);
+  fila.querySelector('.rp-med-nombre').addEventListener('input', actualizarResumenPendiente);
+  fila.querySelector('button').addEventListener('click', () => { fila.remove(); actualizarResumenPendiente(); });
+  lista.appendChild(fila);
+}
+
+function leerMedsPendienteForm() {
+  const medicamentos = [];
+  document.querySelectorAll('#rp-meds-lista > div').forEach(fila => {
+    const nombre = fila.querySelector('.rp-med-nombre')?.value?.trim();
+    const precio = Number(fila.querySelector('.rp-med-precio')?.value) || 0;
+    if (nombre) medicamentos.push({ nombre, precio });
+  });
+  return medicamentos;
+}
+
+function actualizarResumenPendiente() {
+  if (!_revisionActual) return;
+  const tarifa       = Number(document.getElementById('rp-tarifa')?.value) || 0;
+  const medicamentos = leerMedsPendienteForm();
+  const totalMeds    = medicamentos.reduce((s, m) => s + (m.precio || 0), 0);
+  const total        = tarifa + totalMeds;
+
+  document.getElementById('rp-resumen-tarifa').textContent = formatCOP(tarifa);
+  document.getElementById('rp-resumen-meds').textContent   = formatCOP(totalMeds);
+  document.getElementById('rp-resumen-total').textContent  = formatCOP(total);
+
+  const original = _revisionActual.pagoPendiente || {};
+  const seModifico = total !== (original.totalCobrado ?? 0);
+  document.getElementById('rp-aviso-editado').style.display = seModifico ? 'block' : 'none';
+}
+
+function bindModalRevisarPendiente() {
+  document.getElementById('rp-tarifa')?.addEventListener('input', actualizarResumenPendiente);
+  document.getElementById('btn-rp-add-med')?.addEventListener('click', () => agregarFilaMedPendiente());
+
+  document.getElementById('btn-rp-aprobar')?.addEventListener('click', async () => {
+    if (!_revisionActual) return;
+    const btn = document.getElementById('btn-rp-aprobar');
+    btn.disabled = true; btn.textContent = 'Procesando...';
+
+    const tarifaBase   = Number(document.getElementById('rp-tarifa').value) || 0;
+    const medicamentos = leerMedsPendienteForm();
+    const totalCobrado = tarifaBase + medicamentos.reduce((s, m) => s + (m.precio || 0), 0);
+    const original      = _revisionActual.pagoPendiente || {};
+    const fueEditado    = totalCobrado !== (original.totalCobrado ?? 0);
+
+    const res = await confirmarPagoPendiente(
+      _revisionActual.id, usuarioActual?.uid, usuarioActual?.nombre,
+      fueEditado ? { tarifaBase, medicamentos, totalCobrado } : null
+    );
+
+    btn.disabled = false; btn.textContent = 'Aprobar cobro';
+
+    if (!res.ok) {
+      mostrarAlerta('alert-rp', res.error, 'error');
+      return;
+    }
+
+    await registrarPago({ ...res.pagoPendiente, usuarioId: usuarioActual?.uid });
+    cerrarModal('modal-revisar-pendiente');
+    toast(fueEditado
+      ? `Cobro aprobado con el valor editado: ${formatCOP(totalCobrado)}`
+      : `Cobro aprobado: ${formatCOP(totalCobrado)}`, 'success');
+
+    await Promise.all([renderEstadisticas(), renderVistaFinanzas()]);
+    _onRevisionResuelta?.();
+    _revisionActual = null;
+  });
+
+  document.getElementById('btn-rp-rechazar')?.addEventListener('click', async () => {
+    if (!_revisionActual) return;
+    const motivo = await pedirMotivoCancelacion();
+    if (!motivo) return;
+
+    const btn = document.getElementById('btn-rp-rechazar');
+    btn.disabled = true; btn.textContent = 'Rechazando...';
+    const res = await rechazarPagoPendiente(_revisionActual.id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
+    btn.disabled = false; btn.textContent = 'Rechazar';
+
+    if (!res.ok) {
+      mostrarAlerta('alert-rp', res.error, 'error');
+      return;
+    }
+
+    cerrarModal('modal-revisar-pendiente');
+    toast('Cobro rechazado. La cita vuelve a estar activa.', 'success');
+    await Promise.all([renderEstadisticas(), renderVistaFinanzas()]);
+    _onRevisionResuelta?.();
+    _revisionActual = null;
+  });
+}
 
 // ══════════════════════════════════════════════════════════
 // VISTA FINANZAS
@@ -864,8 +1157,9 @@ async function renderVistaFinanzas() {
   const citasHoy   = await obtenerCitasPorFecha(HOY);
   const canceladas = citasHoy.filter(c => c.estado === ESTADOS.CANCELADA);
 
-  const totDia = calcularTotalesDia(pagosHoy);
-  const totMes = calcularTotalesMes(pagosMes);
+  const totDia    = calcularTotalesDia(pagosHoy);
+  const totMes    = calcularTotalesMes(pagosMes);
+  const totMetodo = calcularTotalesPorMetodo(pagosHoy);
 
   // ── KPIs ──────────────────────────────────────────────
   const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -875,6 +1169,10 @@ async function renderVistaFinanzas() {
   setEl('fin-sub-mes',        `${totMes.cantidad} sesiones este mes`);
   setEl('fin-meds-dia',       formatCOP(totDia.soloMeds));
   setEl('fin-canceladas-dia', String(canceladas.length));
+
+  setEl('fin-metodo-efectivo',  formatCOP(totMetodo.efectivo));
+  setEl('fin-metodo-nequi',     formatCOP(totMetodo.nequi));
+  setEl('fin-metodo-daviplata', formatCOP(totMetodo.daviplata));
 
   const fechaFmt = new Date(HOY + 'T12:00:00').toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -901,14 +1199,17 @@ async function renderVistaFinanzas() {
           </thead>
           <tbody>
             ${pagosHoy.map((p, i) => `
-              <tr style="border-bottom:1px solid var(--border);background:${i%2===0?'transparent':'var(--bg-secondary)'}">
+              <tr style="border-bottom:1px solid var(--border);background:${p.modificadoPorAdmin ? 'var(--warning-soft)' : (i%2===0?'transparent':'var(--bg-secondary)')}">
                 <td style="padding:8px 12px;color:var(--text-muted)">${p.hora}</td>
                 <td style="padding:8px 12px;font-weight:500">${p.clienteNombre}</td>
                 <td style="padding:8px 12px;color:var(--text-muted)">${p.tipoSesion}</td>
                 <td style="padding:8px 12px;text-align:right">${formatCOP(p.tarifaBase)}</td>
                 <td style="padding:8px 12px;text-align:right;color:${p.totalMedicamentos>0?'var(--color-green)':'var(--text-muted)'}">
                   ${p.totalMedicamentos>0 ? formatCOP(p.totalMedicamentos) : '—'}</td>
-                <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--color-green)">${formatCOP(p.totalCobrado)}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:${p.modificadoPorAdmin ? 'var(--warning)' : 'var(--color-green)'}">
+                  ${formatCOP(p.totalCobrado)}
+                  ${p.modificadoPorAdmin ? `<span class="badge badge-warning qm-badge-editado" style="margin-left:6px;font-weight:600" title="Original: ${formatCOP(p.totalOriginal ?? 0)}">✎ Editado</span>` : ''}
+                </td>
               </tr>`).join('')}
           </tbody>
           <tfoot>
@@ -989,46 +1290,16 @@ async function renderTablaPendientesConfirmacion() {
             <td style="padding:8px 12px;color:var(--text-muted)">${c.pagoPendiente?.enviadoPorNombre || '—'}</td>
             <td style="padding:8px 12px;text-align:right;font-weight:700">${formatCOP(c.pagoPendiente?.totalCobrado || 0)}</td>
             <td style="padding:8px 12px;text-align:right">
-              <button class="btn btn-soft btn-sm"   data-aprobar-pago="${c.id}">✓ Aprobar</button>
-              <button class="btn btn-danger btn-sm" data-rechazar-pago="${c.id}">✕ Rechazar</button>
+              <button class="btn btn-soft btn-sm" data-revisar-pago="${c.id}">🔍 Revisar</button>
             </td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 
-  tabla.querySelectorAll('[data-aprobar-pago]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const citaId = btn.dataset.aprobarPago;
-      btn.disabled = true; btn.textContent = 'Confirmando...';
-
-      const res = await confirmarPagoPendiente(citaId, usuarioActual?.uid, usuarioActual?.nombre);
-      if (!res.ok) {
-        mostrarAlerta('alert-fin-pendientes', res.error, 'error');
-        btn.disabled = false; btn.textContent = '✓ Aprobar';
-        return;
-      }
-
-      await registrarPago({ ...res.pagoPendiente, usuarioId: usuarioActual?.uid });
-      mostrarAlerta('alert-fin-pendientes', 'Pago confirmado y registrado.', 'success');
-      await Promise.all([renderVistaFinanzas(), renderEstadisticas()]);
-    });
-  });
-
-  tabla.querySelectorAll('[data-rechazar-pago]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const motivo = await pedirMotivoCancelacion();
-      if (!motivo) return;
-      btn.disabled = true; btn.textContent = 'Rechazando...';
-
-      const res = await rechazarPagoPendiente(btn.dataset.rechazarPago, motivo, usuarioActual?.uid, usuarioActual?.nombre);
-      if (!res.ok) {
-        mostrarAlerta('alert-fin-pendientes', res.error, 'error');
-        btn.disabled = false; btn.textContent = '✕ Rechazar';
-        return;
-      }
-
-      mostrarAlerta('alert-fin-pendientes', 'Cobro rechazado. La cita vuelve a estar activa.', 'success');
-      await renderVistaFinanzas();
+  tabla.querySelectorAll('[data-revisar-pago]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cita = pendientes.find(c => c.id === btn.dataset.revisarPago);
+      if (cita) abrirRevisionPendiente(cita);
     });
   });
 }
@@ -1227,14 +1498,14 @@ function bindFormCita() {
       document.getElementById('qp-dpto').value    = '';
       document.getElementById('qp-ciudad').value  = '';
       document.getElementById('qp-pais').value    = '';
-      mostrarAlerta('alert-form-cita', 'Paciente registrado y seleccionado.', 'success');
+      avisoCentral({ mensaje: 'Paciente registrado y seleccionado.', tipo: 'success' });
     } else {
       if (res.paciente) {
         asignarPacienteACita(res.paciente.id, res.paciente.nombre, res.paciente.ciudad || '');
         document.getElementById('quick-register').classList.remove('visible');
-        mostrarAlerta('alert-form-cita', 'Paciente ya existente — seleccionado.', 'success');
+        avisoCentral({ mensaje: 'Paciente ya existente — seleccionado.', tipo: 'success' });
       } else {
-        mostrarAlerta('alert-form-cita', res.error, 'error');
+        avisoCentral({ mensaje: res.error, tipo: 'error' });
       }
     }
 
@@ -1276,11 +1547,14 @@ function bindFormCita() {
     const res = await agendarCita(datos);
 
     if (res.ok) {
-      mostrarAlerta('alert-form-cita', 'Cita agendada correctamente.', 'success');
+      avisoCentral({ mensaje: 'Cita agendada correctamente.', tipo: 'success' });
       const fechaActual = document.getElementById('filter-fecha').value;
       await Promise.all([
         renderEstadisticas(),
-        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true),
+        renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true, true, true, {
+          onCancelarCita: cancelarCitaDesdeAsistente,
+          onReprogramarCita: reprogramarCitaDesdeAsistente,
+        }),
         ...(fechaActual ? [cargarSlotsFecha(fechaActual)] : []),
       ]);
       setTimeout(() => {
@@ -1288,29 +1562,22 @@ function bindFormCita() {
         document.getElementById('c-notas').value = '';
       }, 900);
     } else {
-      // Sugerir próximo horario disponible
+      // Sugerir próximo horario disponible — aviso centrado con acción,
+      // así el usuario lo ve y puede elegirlo sin importar el scroll del modal.
       const sugerencia = await sugerirHorario(datos.fecha, datos.hora);
-      const alertEl = document.getElementById('alert-form-cita');
       if (sugerencia) {
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { if (alertEl) { alertEl.textContent = ''; alertEl.className = ''; } }, 8000);
-        document.getElementById('btn-usar-sugerencia')?.addEventListener('click', () => {
-          setTimePicker('c-hora', sugerencia.hora);
-          document.getElementById('c-fecha').value = sugerencia.fecha;
-          alertEl.textContent = ''; alertEl.className = '';
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
+            setTimePicker('c-hora', sugerencia.hora);
+            document.getElementById('c-fecha').value = sugerencia.fecha;
+          },
         });
       } else {
-        mostrarAlerta('alert-form-cita', res.error + ' No hay horarios disponibles ese día.', 'error');
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
     }
 
@@ -1360,35 +1627,24 @@ function bindFormReprogramar() {
 
     if (res.ok) {
       cerrarModal('modal-reprogramar');
-      mostrarAlerta('alert-cita', 'Cita reprogramada correctamente.', 'success');
+      toast('Cita reprogramada correctamente.', 'success');
       await cargarSlotsFecha(document.getElementById('filter-fecha').value);
     } else {
       const sugerencia = await sugerirHorario(fecha, hora);
-      const alertEl    = document.getElementById('alert-reprog');
 
       if (sugerencia) {
-        alertEl.className = 'alert alert-warning';
-        alertEl.innerHTML = `
-          ⚠️ ${res.error}<br>
-          <strong>Próximo disponible: ${sugerencia.hora}</strong>
-          <button
-            style="margin-left:10px;padding:2px 10px;border-radius:4px;
-                   border:1px solid #0A76D8;background:#f0f7ff;
-                   color:#0A76D8;cursor:pointer;font-size:12px;"
-            id="btn-usar-sugerencia-reprog">
-            Usar este horario
-          </button>`;
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 8000);
-        document.getElementById('btn-usar-sugerencia-reprog')
-          ?.addEventListener('click', () => {
+        avisoCentral({
+          mensaje: res.error,
+          sub: `Próximo horario disponible: ${hora12Display(sugerencia.hora)}`,
+          tipo: 'warning',
+          accionTexto: 'Usar este horario',
+          onAccion: () => {
             setTimePicker('r-hora', sugerencia.hora);
             document.getElementById('r-fecha').value = sugerencia.fecha;
-            alertEl.textContent = ''; alertEl.className = '';
-          });
+          },
+        });
       } else {
-        alertEl.className   = 'alert alert-error';
-        alertEl.textContent = res.error + ' No hay horarios disponibles ese día.';
-        setTimeout(() => { alertEl.textContent = ''; alertEl.className = ''; }, 5000);
+        avisoCentral({ mensaje: res.error + ' No hay horarios disponibles ese día.', tipo: 'error' });
       }
     }
 
@@ -1534,4 +1790,39 @@ function abrirModalCitaDesdeVoz(datos) {
     input.value = datos.clienteNombre;
     input.dispatchEvent(new Event('input'));
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// ASISTENTE IA — cancelar / reprogramar cita existente
+// ══════════════════════════════════════════════════════════
+async function cancelarCitaDesdeAsistente(cita) {
+  const motivo = await pedirMotivoCancelacion();
+  if (!motivo) return false;
+  const res = await cancelarCita(cita.id, motivo, usuarioActual?.uid, usuarioActual?.nombre);
+  if (!res.ok) {
+    toast(res.error || 'No se pudo cancelar la cita.', 'error');
+    return false;
+  }
+  toast('Cita cancelada.', 'success');
+  await Promise.all([
+    renderEstadisticas(),
+    renderDashboardPaneles(completarCitaHoy, abrirModalCitaDesdeVoz, true, true, true, {
+      onCancelarCita: cancelarCitaDesdeAsistente,
+      onReprogramarCita: reprogramarCitaDesdeAsistente,
+    }),
+  ]);
+  const fechaFiltro = document.getElementById('filter-fecha')?.value;
+  if (fechaFiltro) await cargarSlotsFecha(fechaFiltro);
+  return true;
+}
+
+function reprogramarCitaDesdeAsistente(cita, nuevaFecha, nuevaHora) {
+  citaReprogramarId = cita.id;
+  const rFechaEl = document.getElementById('r-fecha');
+  const fechaInicial = nuevaFecha || HOY;
+  rFechaEl.min   = HOY;
+  rFechaEl.value = fechaInicial;
+  actualizarSelectHoras('r-hora', fechaInicial, nuevaHora || null);
+  rFechaEl.onchange = () => actualizarSelectHoras('r-hora', rFechaEl.value);
+  abrirModal('modal-reprogramar');
 }

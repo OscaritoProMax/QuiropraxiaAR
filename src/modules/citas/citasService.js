@@ -4,6 +4,7 @@ import {
   doc, query, where, serverTimestamp, arrayUnion, deleteField
 } from "firebase/firestore";
 import { db } from "../../core/firebase";   // ← era ./firebase
+import { HOY } from "../../shared/helpers.js";
 
 export const ESTADOS = {
   ACTIVA:                  "activa",
@@ -27,6 +28,9 @@ const _aMinutos = (hhmm) => {
   return (h || 0) * 60 + (m || 0);
 };
 
+const _minutosAHora = (min) =>
+  `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
 /** Genera la lista de horas "HH:MM" entre inicio y fin (ambos inclusive). */
 export function generarHorarios(inicio = HORARIO_DEFAULT.inicio, fin = HORARIO_DEFAULT.fin, stepMin = STEP_MIN) {
   const ini  = _aMinutos(inicio || HORARIO_DEFAULT.inicio);
@@ -43,6 +47,19 @@ export function generarHorarios(inicio = HORARIO_DEFAULT.inicio, fin = HORARIO_D
 // regenera con cargarHorarios() al iniciar cada página, según la jornada
 // guardada. Todos los módulos que lo importan ven siempre el valor actual.
 export let HORARIOS = generarHorarios();
+
+// ── Visibilidad de citas de mostrador (walk-in) ───────────
+// Call Center no debe ver nunca las citas agendadas desde el botón de
+// mostrador (paciente que llega sin cita previa). En vez de tocar cada
+// vista/consumidor de citas por separado, se centraliza acá: las 3
+// funciones que leen la colección "citas" (obtenerCitasPorFecha,
+// obtenerCitasPorRangoFecha, obtenerCitasPorCliente) filtran las citas de
+// mostrador cuando este flag está activo. callcenter/handlers.js lo activa
+// una sola vez al cargar el módulo.
+let _ocultarMostrador = false;
+export function configurarVisibilidadMostrador(ocultar) {
+  _ocultarMostrador = !!ocultar;
+}
 
 /** Lee la jornada guardada en Firestore y regenera HORARIOS. */
 export async function cargarHorarios() {
@@ -71,9 +88,12 @@ function crearEntradaHistorial(accion, usuarioId, usuarioNombre, detalle = '') {
 
 export async function agendarCita(datos) {
   try {
-    const { clienteId, clienteNombre, clienteCiudad, usuarioId, usuarioNombre, fecha, hora, tipo, notas } = datos;
+    const { clienteId, clienteNombre, clienteCiudad, usuarioId, usuarioNombre, fecha, hora, tipo, notas, mostrador = false } = datos;
     if (!clienteId || !fecha || !hora) {
       return { ok: false, error: "Paciente, fecha y hora son obligatorios." };
+    }
+    if (fecha < HOY) {
+      return { ok: false, error: "No se pueden agendar citas en fechas que ya pasaron." };
     }
     const cruce = await verificarCruce(fecha, hora);
     if (cruce) {
@@ -91,6 +111,7 @@ export async function agendarCita(datos) {
       tipo:   tipo  || "Ajuste general",
       notas:  notas || "",
       estado: ESTADOS.ACTIVA,
+      mostrador: !!mostrador,   // true = cita de mostrador (paciente sin cita previa); no visible para Call Center
       sede:    viaje ? viaje.ciudadFull : "",   // "" = sede local; si no, "Depto > Ciudad"
       viajeId: viaje ? viaje.id : "",
       fechaCreacion: serverTimestamp(),
@@ -201,6 +222,9 @@ export async function reprogramarCita(id, nuevaFecha, nuevaHora, usuarioId = nul
     if (!nuevaFecha || !nuevaHora) {
       return { ok: false, error: "Nueva fecha y hora son obligatorias." };
     }
+    if (nuevaFecha < HOY) {
+      return { ok: false, error: "No se puede reprogramar una cita a una fecha que ya pasó." };
+    }
     const cruce = await verificarCruce(nuevaFecha, nuevaHora, id);
     if (cruce) {
       return { ok: false, error: `El horario ${nuevaHora} del ${nuevaFecha} ya está ocupado.` };
@@ -274,7 +298,17 @@ export async function obtenerCitasPendientesConfirmacion() {
   }
 }
 
-export async function confirmarPagoPendiente(id, usuarioId = null, usuarioNombre = null) {
+/**
+ * Aprueba un cobro pendiente de confirmación.
+ * @param {string} id
+ * @param {string} usuarioId
+ * @param {string} usuarioNombre
+ * @param {{tarifaBase:number, medicamentos:Array, totalCobrado:number}|null} edicion
+ *   Si el administrador ajustó la tarifa o los ítems antes de aprobar, se
+ *   marca el pago resultante como `modificadoPorAdmin` y se conserva el
+ *   total original enviado por quien lo registró, para trazabilidad.
+ */
+export async function confirmarPagoPendiente(id, usuarioId = null, usuarioNombre = null, edicion = null) {
   try {
     const snap = await getDoc(doc(db, "citas", id));
     if (!snap.exists()) return { ok: false, error: "La cita no existe." };
@@ -282,16 +316,31 @@ export async function confirmarPagoPendiente(id, usuarioId = null, usuarioNombre
     if (cita.estado !== ESTADOS.PENDIENTE_CONFIRMACION || !cita.pagoPendiente) {
       return { ok: false, error: "Esta cita no tiene un cobro pendiente de confirmación." };
     }
+
+    const pagoOriginal = cita.pagoPendiente;
+    const pagoFinal = edicion ? {
+      ...pagoOriginal,
+      tarifaBase:         edicion.tarifaBase,
+      medicamentos:       edicion.medicamentos,
+      totalCobrado:       edicion.totalCobrado,
+      modificadoPorAdmin: true,
+      totalOriginal:      pagoOriginal.totalCobrado,
+    } : pagoOriginal;
+
+    const detalleHistorial = edicion
+      ? `Total editado por el administrador: ${edicion.totalCobrado} (original: ${pagoOriginal.totalCobrado})`
+      : `Total: ${pagoOriginal.totalCobrado}`;
+
     await updateDoc(doc(db, "citas", id), {
       estado:             ESTADOS.COMPLETADA,
       pagoPendiente:      deleteField(),
       ultimaModificacion: serverTimestamp(),
       historial: arrayUnion(crearEntradaHistorial(
-        'Pago aprobado por administrador', usuarioId, usuarioNombre,
-        `Total: ${cita.pagoPendiente.totalCobrado}`
+        edicion ? 'Pago aprobado con edición del administrador' : 'Pago aprobado por administrador',
+        usuarioId, usuarioNombre, detalleHistorial
       )),
     });
-    return { ok: true, pagoPendiente: cita.pagoPendiente };
+    return { ok: true, pagoPendiente: pagoFinal };
   } catch (error) {
     console.error("Error confirmando pago pendiente:", error);
     return { ok: false, error: "No se pudo confirmar el pago." };
@@ -319,7 +368,8 @@ export async function obtenerCitasPorFecha(fecha) {
   try {
     const q    = query(collection(db, "citas"), where("fecha", "==", fecha));
     const snap = await getDocs(q);
-    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (_ocultarMostrador) docs = docs.filter(c => !c.mostrador);
     docs.sort((a, b) => a.hora.localeCompare(b.hora));
     return docs;
   } catch (error) {
@@ -338,7 +388,9 @@ export async function obtenerCitasPorRangoFecha(desde, hasta) {
       where("fecha", "<=", hasta)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (_ocultarMostrador) docs = docs.filter(c => !c.mostrador);
+    return docs;
   } catch (error) {
     console.error("Error obteniendo citas por rango:", error);
     return [];
@@ -359,7 +411,8 @@ export async function obtenerCitasPorCliente(clienteId) {
   try {
     const q    = query(collection(db, "citas"), where("clienteId", "==", clienteId));
     const snap = await getDocs(q);
-    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (_ocultarMostrador) docs = docs.filter(c => !c.mostrador);
     docs.sort((a, b) => b.fecha.localeCompare(a.fecha));
     return docs;
   } catch (error) {
@@ -406,4 +459,77 @@ export async function sugerirHorario(fecha, horaDesde) {
     }
   }
   return null;
+}
+
+// ── Horarios válidos para citas de mostrador (walk-in) ────────────
+// A diferencia de la grilla normal, una cita de mostrador puede caer:
+//  1) Hasta 1 hora antes de la apertura o después del cierre de jornada,
+//     en los mismos pasos de 20 min de siempre (EXTENSION_MIN / STEP_MIN).
+//  2) En la mitad de un hueco de 20 min entre dos citas ya agendadas
+//     consecutivas de la grilla — y si ese hueco ya tiene una cita de
+//     mostrador en el punto medio, se ofrece un segundo cupo repartiendo
+//     el hueco en tercios: la cita existente se reubica al primer tercio
+//     (candidato trae `mueve`) y la nueva entra en el segundo. Máximo 2
+//     citas de mostrador por hueco — a partir de ahí no se ofrece nada más.
+const EXTENSION_MIN = 60;
+const MAX_MOSTRADOR_POR_HUECO = 2;
+const ACTIVOS = [ESTADOS.ACTIVA, ESTADOS.REPROGRAMADA, ESTADOS.PENDIENTE_CONFIRMACION];
+
+export async function sugerirHorariosMostrador(fecha) {
+  const citasDelDia = await obtenerCitasPorFecha(fecha);
+  const activas = citasDelDia.filter(c => ACTIVOS.includes(c.estado));
+
+  const candidatos = [];
+
+  // 1) Zona extendida antes/después de la jornada.
+  const ocupadas = new Set(activas.map(c => c.hora));
+  const iniM = _aMinutos(HORARIOS[0]);
+  const finM = _aMinutos(HORARIOS[HORARIOS.length - 1]);
+  for (let t = iniM - EXTENSION_MIN; t < iniM; t += STEP_MIN) {
+    const h = _minutosAHora(t);
+    if (!ocupadas.has(h)) candidatos.push({ hora: h, tipo: 'extendido' });
+  }
+  for (let t = finM + STEP_MIN; t <= finM + EXTENSION_MIN; t += STEP_MIN) {
+    const h = _minutosAHora(t);
+    if (!ocupadas.has(h)) candidatos.push({ hora: h, tipo: 'extendido' });
+  }
+
+  // 2) Huecos entre dos citas consecutivas de la grilla (20 min exactos).
+  const horasGrid = [...new Set(activas.map(c => c.hora))]
+    .filter(h => HORARIOS.includes(h))
+    .sort();
+
+  for (let i = 0; i < horasGrid.length - 1; i++) {
+    const a = _aMinutos(horasGrid[i]);
+    const b = _aMinutos(horasGrid[i + 1]);
+    if (b - a !== STEP_MIN) continue; // no son slots consecutivos de la grilla
+
+    const enHueco = activas
+      .filter(c => c.mostrador && _aMinutos(c.hora) > a && _aMinutos(c.hora) < b)
+      .sort((x, y) => x.hora.localeCompare(y.hora));
+
+    if (enHueco.length === 0) {
+      candidatos.push({ hora: _minutosAHora(Math.round(a + (b - a) / 2)), tipo: 'hueco' });
+    } else if (enHueco.length === 1 && MAX_MOSTRADOR_POR_HUECO >= 2) {
+      // Un solo "paso" redondeado (no cada fracción por separado) para que
+      // los dos tercios queden separados en partes iguales — con un hueco
+      // de 20 min: paso = round(20/3) = 7 → 9:07 y 9:14 (no 9:07 y 9:13).
+      const paso = Math.round((b - a) / 3);
+      const primerTercio  = _minutosAHora(a + paso);
+      const segundoTercio = _minutosAHora(a + paso * 2);
+      candidatos.push({
+        hora: segundoTercio,
+        tipo: 'hueco',
+        mueve: {
+          citaId: enHueco[0].id,
+          clienteNombre: enHueco[0].clienteNombre,
+          deHora: enHueco[0].hora,
+          aHora: primerTercio,
+        },
+      });
+    }
+    // enHueco.length >= MAX_MOSTRADOR_POR_HUECO → tope alcanzado, sin más candidatos en este hueco.
+  }
+
+  return candidatos.sort((x, y) => x.hora.localeCompare(y.hora));
 }

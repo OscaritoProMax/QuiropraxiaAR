@@ -288,6 +288,10 @@ body {
   justify-content: space-between;
   flex-shrink: 0;
 }
+.topbar-left {
+  flex: 1;
+  text-align: center;
+}
 .topbar-left h1 {
   font-size: 19px;
   font-weight: 600;
@@ -570,6 +574,300 @@ body {
 .ia-resultado-val   { font-weight: 500; color: var(--th-text); }
 .ia-voz-acciones    { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* Cuando el asistente flotante reemplaza el panel IA embebido, la
+   tarjeta de "cita actual" (y pendientes, si aplica) ocupan todo el
+   ancho en vez de repartirse en 2 columnas. */
+.dash-panels-grid-solo { grid-template-columns: 1fr; }
+
+/* ════════════════════════════════════════════════════════════
+   ASISTENTE IA FLOTANTE — botón + panel de chat (panel admin)
+════════════════════════════════════════════════════════════ */
+.ia-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--primary), #0A76D8 60%, #7c3aed);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(10,118,216,.4);
+  z-index: 400;
+  transition: transform .2s, box-shadow .2s;
+  animation: ia-fab-entrance .5s cubic-bezier(.22,.68,0,1.3),
+             ia-fab-glow 2.6s ease-in-out 1s 3;
+}
+.ia-fab:hover  { transform: translateY(-3px) scale(1.05); box-shadow: 0 12px 30px rgba(10,118,216,.5); }
+.ia-fab:active { transform: scale(.94); }
+.ia-fab-icon-close { display: none; }
+.ia-fab.ia-fab-open { animation: none; }
+.ia-fab.ia-fab-open .ia-fab-icon-chat  { display: none; }
+.ia-fab.ia-fab-open .ia-fab-icon-close { display: block; }
+
+@keyframes ia-fab-entrance {
+  from { opacity: 0; transform: scale(.4) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes ia-fab-glow {
+  0%, 100% { box-shadow: 0 8px 24px rgba(10,118,216,.4); }
+  50%      { box-shadow: 0 8px 30px rgba(10,118,216,.7), 0 0 0 8px rgba(10,118,216,.08); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   FAB "Mostrador" — agendar cita para paciente sin cita previa.
+   Abajo-izquierda (a propósito) para no competir con el FAB de
+   IA (abajo-derecha) en la misma vista.
+════════════════════════════════════════════════════════════ */
+.fab-mostrador {
+  position: fixed;
+  left: 28px;
+  bottom: 28px;
+  height: 48px;
+  padding: 0 18px 0 16px;
+  border-radius: 24px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(13,148,136,.4);
+  z-index: 400;
+  transition: transform .2s, box-shadow .2s;
+}
+.fab-mostrador:hover  { transform: translateY(-3px) scale(1.03); box-shadow: 0 12px 30px rgba(13,148,136,.5); }
+.fab-mostrador:active { transform: scale(.95); }
+
+/* Chips de horarios sugeridos dentro del modal de mostrador */
+.cm-horarios-wrap { display: flex; flex-direction: column; gap: 10px; }
+.cm-horarios-grupo-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
+.cm-horarios-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.cm-horario-chip {
+  padding: 7px 13px;
+  border-radius: 18px;
+  border: 1px solid var(--th-card-border);
+  background: var(--th-card);
+  color: var(--th-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.cm-horario-chip:hover  { border-color: #0d9488; color: #0d9488; }
+.cm-horario-chip.active { background: #0d9488; border-color: #0d9488; color: #fff; }
+.cm-horario-chip-mueve  { font-size: 10px; font-weight: 500; display: block; opacity: .8; margin-top: 1px; }
+
+/* Badge "Mostrador" — junto al badge de estado en slots y cronograma */
+.badge-mostrador {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #ccfbf1;
+  color: #0d9488;
+  white-space: nowrap;
+}
+[data-theme="dark"] .badge-mostrador { background: rgba(13,148,136,.22); color: #5eead4; }
+
+.ia-chat-panel {
+  position: fixed;
+  right: 28px;
+  bottom: 98px;
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  height: 500px;
+  max-height: calc(100vh - 140px);
+  background: var(--th-card);
+  border: 1px solid var(--th-card-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 399;
+  opacity: 0;
+  transform: scale(.9) translateY(16px);
+  transform-origin: bottom right;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.22,.68,0,1.1);
+}
+.ia-chat-panel.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.ia-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--primary), #0A76D8 70%, #7c3aed);
+  color: #fff;
+  flex-shrink: 0;
+}
+.ia-chat-header-icon {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ia-chat-header-text  { flex: 1; min-width: 0; }
+.ia-chat-header-title { font-weight: 700; font-size: 14px; }
+.ia-chat-header-sub   { font-size: 11px; opacity: .85; }
+.ia-chat-close {
+  background: rgba(255,255,255,.15); border: none; color: #fff;
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  font-size: 16px; line-height: 1; flex-shrink: 0;
+  transition: background .15s;
+}
+.ia-chat-close:hover { background: rgba(255,255,255,.3); }
+
+.ia-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--th-bg3);
+}
+
+.ia-msg {
+  max-width: 84%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  animation: ia-msg-in .25s cubic-bezier(.22,.68,0,1.2);
+}
+.ia-msg-user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.ia-msg-bot {
+  align-self: flex-start;
+  background: var(--th-card);
+  color: var(--th-text);
+  border: 1px solid var(--th-card-border);
+  border-bottom-left-radius: 4px;
+}
+@keyframes ia-msg-in {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ia-msg-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+.ia-msg-typing span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--th-text3);
+  animation: ia-typing-bounce 1.2s infinite ease-in-out;
+}
+.ia-msg-typing span:nth-child(2) { animation-delay: .15s; }
+.ia-msg-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes ia-typing-bounce {
+  0%, 60%, 100% { transform: translateY(0);    opacity: .5; }
+  30%           { transform: translateY(-4px); opacity: 1;  }
+}
+
+.ia-chat-chips { display: flex; flex-wrap: wrap; gap: 6px; align-self: stretch; }
+.ia-chip {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.ia-chip:hover { background: var(--primary); color: #fff; }
+
+.ia-msg-cita { width: 84%; }
+.ia-msg-cita-titulo { font-weight: 600; margin-bottom: 6px; font-size: 12.5px; }
+.ia-msg-cita .ia-resultado-item { padding: 5px 0; font-size: 12px; border-bottom: 1px dashed var(--th-divider); }
+.ia-msg-cita .ia-resultado-item:last-of-type { border-bottom: none; }
+.ia-msg-cita-acciones { display: flex; gap: 8px; margin-top: 8px; }
+.ia-msg-cita-acciones .btn { flex: 1; justify-content: center; }
+.ia-msg-cita-estado { margin-top: 8px; font-size: 12px; color: var(--th-text2); font-style: italic; }
+
+.ia-msg-lista { width: 84%; }
+.ia-lista-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: var(--th-bg3);
+  border: 1px solid var(--th-card-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.ia-lista-item:hover  { background: var(--primary-soft); border-color: var(--primary); }
+.ia-lista-fecha  { font-size: 11px; color: var(--th-text2); font-weight: 600; }
+.ia-lista-nombre { font-size: 13px; color: var(--th-text); font-weight: 500; }
+
+.ia-chat-inputbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--th-card-border);
+  background: var(--th-card);
+  flex-shrink: 0;
+}
+.ia-mic-btn-sm { width: 36px; height: 36px; flex-shrink: 0; }
+.ia-chat-input {
+  flex: 1;
+  border: 1px solid var(--th-card-border);
+  background: var(--th-bg3);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--th-text);
+  outline: none;
+  transition: border-color .15s;
+}
+.ia-chat-input:focus { border-color: var(--primary); }
+.ia-chat-send {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .15s;
+}
+.ia-chat-send:hover:not(:disabled) { background: var(--primary-hover); }
+.ia-chat-send:disabled { opacity: .5; cursor: default; }
+
+@media (max-width: 640px) {
+  .ia-fab { right: 16px; bottom: 84px; width: 54px; height: 54px; }
+  .fab-mostrador { left: 16px; bottom: 84px; height: 46px; padding: 0 14px 0 12px; font-size: 12px; }
+  .ia-chat-panel {
+    right: 10px; left: 10px; bottom: 84px;
+    width: auto; max-width: none;
+    height: min(72vh, 560px);
+  }
+}
+
 /* ════════════════════════════════════════════════════════════
    GRID EXTRA DEL DASHBOARD
 ════════════════════════════════════════════════════════════ */
@@ -734,6 +1032,17 @@ body {
 }
 .slot-disponible .slot-time { color: var(--th-text3); }
 
+/* Cita de mostrador — toda la fila se ve distinta (no solo el badge) para
+   que quede claro de un vistazo que se agendó "en marcha", sin cita previa. */
+.slot-row-mostrador {
+  background: #f0fdfa;
+  border-color: #0d9488;
+  border-left: 4px solid #0d9488;
+}
+.slot-row-mostrador:hover { border-color: #0d9488; box-shadow: 0 2px 8px rgba(13,148,136,.15); }
+.slot-row-mostrador .slot-time { color: #0d9488; }
+[data-theme="dark"] .slot-row-mostrador { background: rgba(13,148,136,.10); }
+
 /* ═══════════════════════════════════════════════════════════
    CRONOGRAMA
 ═══════════════════════════════════════════════════════════ */
@@ -750,13 +1059,15 @@ body {
 .crono-card {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   padding: 14px 18px;
   border-radius: 7px;
   border: 1px solid var(--th-card-border);
   background: var(--th-card);
   margin-bottom: 10px;
   transition: box-shadow .15s;
+  overflow: hidden;
 }
 .crono-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.07); }
 .crono-hora {
@@ -767,11 +1078,14 @@ body {
   flex-shrink: 0;
   padding-top: 2px;
 }
-.crono-info { flex: 1; }
+.crono-info { flex: 1 1 160px; min-width: 0; }
 .crono-nombre { font-size: 14px; font-weight: 600; color: var(--th-text); }
 .crono-meta   { font-size: 12px; color: var(--th-text2); margin-top: 2px; }
 .crono-notas  { font-size: 12px; color: var(--th-text3); margin-top: 4px; font-style: italic; }
-.crono-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+/* flex-basis:100% obliga a que las acciones siempre caigan en su propia
+   fila DENTRO del ancho de la tarjeta — así nunca se salen del div, ni
+   siquiera cuando se agregan badges extra (ej. "Mostrador"). */
+.crono-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex: 1 1 100%; margin-top: 6px; }
 .crono-section-label {
   font-size: 11px;
   font-weight: 600;
@@ -1218,24 +1532,68 @@ body {
     margin-top: 4px !important;
   }
 
+  /* Grupo de acciones de una cita agendada (Info/Reprogramar/Cancelar/Completar):
+     se envuelven en 2 columnas en vez de forzar cada botón a 100% dentro de
+     un contenedor sin wrap — eso era lo que las hacía desbordar el slot-row. */
+  .slot-row .slot-actions {
+    width: 100% !important;
+    margin-left: 0 !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .slot-row .slot-actions .btn {
+    flex: 1 1 calc(50% - 6px) !important;
+    width: auto !important;
+    min-width: 110px !important;
+    margin-top: 0 !important;
+  }
+
+  /* Topbar — apilar título y botón de acción en vez de comprimirlos en una fila */
+  .topbar {
+    flex-wrap: wrap !important;
+    row-gap: 8px !important;
+  }
+  .topbar-right {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+  #topbar-actions {
+    width: 100% !important;
+  }
+  #topbar-actions .btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Tabs de Citas (Por fecha / Buscar paciente) */
+  .citas-tabs {
+    flex-wrap: wrap !important;
+  }
+  .citas-tabs .citas-tab {
+    flex: 1 1 auto !important;
+  }
+
   .app-container {
     flex-direction: column; /* Cambia de fila a columna */
     height: auto;
     overflow: visible;
   }
 
-  /* 2. Transformar el Sidebar en un Menú de Navegación Inferior Fijo */
+  /* 2. Transformar el Sidebar en una píldora flotante estilo tab bar */
   .sidebar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100% !important; /* Ocupa todo el ancho */
-    height: 60px !important; /* Altura compacta estilo app */
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: 68px !important;
     flex-direction: row; /* Elementos uno al lado del otro */
     z-index: 999;
-    border-right: none;
-    border-top: 1.5px solid var(--th-sidebar-border);
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--th-sidebar-border);
+    border-radius: 24px !important;
+    box-shadow: 0 8px 28px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.08);
+    background: var(--th-sidebar);
+    padding: 0 4px;
     animation: none;
   }
 
@@ -1243,9 +1601,22 @@ body {
   .sidebar-header,
   .profile-container,
   .menu-section-label,
-  .logout-area,
-  .menu-btn .menu-label {
+  .logout-area {
     display: none !important;
+  }
+
+  .menu-btn .menu-label {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    color: var(--th-text2) !important;
+    white-space: nowrap;
+  }
+
+  .menu-btn.menu-active .menu-label {
+    color: var(--primary) !important;
+    font-weight: 600 !important;
   }
 
   /* Contenedor de botones del menú alineados horizontalmente */
@@ -1254,7 +1625,7 @@ body {
     justify-content: space-around;
     align-items: center;
     width: 100%;
-    padding: 0 10px !important;
+    padding: 0 4px !important;
     overflow-y: visible;
   }
 
@@ -1264,18 +1635,23 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     width: auto;
-    height: 100%;
-    padding: 6px 12px !important;
+    height: 58px !important;
+    margin: 5px 2px !important;
+    padding: 6px 4px !important;
     border-right: none !important;
-    border-bottom: 3px solid transparent;
+    border-bottom: none !important;
+    border-radius: 16px !important;
+    background: transparent;
+    color: var(--th-text2);
     flex: 1;
+    transition: background-color .18s ease, color .18s ease;
   }
 
   .menu-btn.menu-active {
-    border-bottom-color: var(--primary) !important; /* Indicador activo abajo */
-    background-color: transparent !important;
+    background-color: var(--th-bg3) !important;
+    border-bottom: none !important;
     color: var(--primary) !important;
   }
 
@@ -1289,7 +1665,7 @@ body {
     width: 100%;
     min-height: 100vh;
     overflow: visible;
-    padding-bottom: 70px; /* Margen inferior para que el menú fijo no tape el contenido */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); /* Margen para la píldora flotante */
   }
 
   /* Topbar móvil super compacta */
@@ -1305,9 +1681,12 @@ body {
     font-size: 17px !important;
   }
 
-  .topbar-left p,
+  .topbar-left p {
+    font-size: 11px !important; /* la sección actual (Citas, Pacientes...) sigue visible, más compacta */
+  }
+
   .topbar-clock {
-    display: none !important; /* Ocultamos el reloj y subtítulo para ganar espacio limpio */
+    display: none !important; /* el reloj se oculta para ganar espacio limpio */
   }
 
   /* El contenedor de las vistas internas */
@@ -1347,36 +1726,51 @@ body {
     overflow: visible !important;
   }
 
-  /* SIDEBAR EN NAVBAR INFERIOR */
+  /* SIDEBAR EN NAVBAR INFERIOR — píldora flotante estilo tab bar */
   .sidebar {
     position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 60px !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: 68px !important;
     flex-direction: row !important;
     z-index: 999 !important;
-    border-right: none !important;
-    border-top: 1.5px solid var(--th-sidebar-border) !important;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid var(--th-sidebar-border) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 28px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.08) !important;
     background: var(--th-sidebar) !important;
-    padding: 0 !important;
+    padding: 0 4px !important;
   }
 
   .sidebar-header,
   .profile-container,
   .menu-section-label,
-  .logout-area,
-  .menu-btn .menu-label {
+  .logout-area {
     display: none !important;
+  }
+
+  .menu-btn .menu-label {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    color: var(--th-text2) !important;
+    white-space: nowrap;
+  }
+
+  .menu-btn.menu-active .menu-label {
+    color: var(--primary) !important;
+    font-weight: 600 !important;
   }
 
   .menu-container {
     display: flex !important;
-    flex-direction: row !justify-content: space-around !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
     align-items: center !important;
     width: 100% !important;
-    padding: 0 10px !important;
+    padding: 0 4px !important;
     margin: 0 !important;
     overflow-y: visible !important;
   }
@@ -1386,19 +1780,27 @@ body {
     flex-direction: column !important;
     justify-content: center !important;
     align-items: center !important;
-    gap: 4px !important;
+    gap: 2px !important;
     flex: 1 !important;
-    padding: 6px 0 !important;
+    padding: 6px 4px !important;
     width: auto !important;
-    height: 100% !important;
+    height: 58px !important;
+    margin: 5px 2px !important;
     background: transparent !important;
-    border-radius: 0 !important;
+    border-bottom: none !important;
+    border-radius: 16px !important;
+    transition: background-color .18s ease, color .18s ease !important;
   }
 
   .menu-btn.menu-active {
-    border-bottom: 3px solid var(--primary) !important;
-    background-color: transparent !important;
+    border-bottom: none !important;
+    background-color: var(--th-bg3) !important;
     color: var(--primary) !important;
+  }
+
+  .menu-icon svg {
+    width: 22px !important;
+    height: 22px !important;
   }
 
   /* CONTENIDO PRINCIPAL */
@@ -1406,7 +1808,7 @@ body {
     width: 100% !important;
     min-height: 100vh !important;
     overflow: visible !important;
-    padding-bottom: 75px !important; /* Espacio para que el menú inferior no tape contenido */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important; /* Espacio para la píldora flotante */
   }
 
   /* Reducción de la barra superior para empujar el contenido hacia arriba */
@@ -1424,7 +1826,10 @@ body {
     margin: 0 !important;
   }
 
-  .topbar-left p,
+  .topbar-left p {
+    font-size: 10.5px !important;
+  }
+
   .topbar-clock {
     display: none !important;
   }
@@ -1477,6 +1882,27 @@ body {
     line-height: 1.2 !important;
   }
 }
+
+/* ============================================================
+   BUSCADOR DE CITAS — tabs + secciones de resultado
+   ============================================================ */
+.citas-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.citas-tab.active { background: var(--primary, #0A76D8); color: #fff; border-color: transparent; }
+
+.buscador-citas-search { margin-bottom: 16px; }
+
+.citas-seccion-titulo {
+  font-size: 12px; font-weight: 600; color: var(--th-text2, #8492a6);
+  text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 8px;
+}
+
+.cita-row-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--th-card-border); border-radius: 8px;
+  margin-bottom: 8px; background: var(--th-card);
+}
+.cita-row-card .cita-row-fecha { font-size: 13px; font-weight: 600; color: var(--th-text, #161c2d); min-width: 130px; }
+.cita-row-card .cita-row-tipo  { font-size: 13px; color: var(--th-text2, #8492a6); flex: 1; }
 
 /* ============================================================
    RESPONSIVE FIX FOR SEARCH ITEMS IN APPOINTMENTS VIEW
@@ -1563,8 +1989,30 @@ body {
   margin-top: 12px;
 }
 
-.semana-dia-cell,
-.semana-dia-card {
+/* ── Leyenda de colores (vista mes) ────────────────────────── */
+.semana-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11.5px;
+  color: var(--th-text2);
+  margin-bottom: 14px;
+}
+.semana-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.semana-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* ── Celdas del mes — compactas, ~30-42 en una grilla densa ── */
+.semana-dia-cell {
   aspect-ratio: 1;
   min-height: 60px;
   display: flex;
@@ -1572,30 +2020,127 @@ body {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   position: relative;
   overflow: hidden;
   border: 1px solid transparent;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-
-.semana-dia-cell:hover,
-.semana-dia-card:hover {
+.semana-dia-cell:hover {
   background: var(--th-bg3);
   border-color: var(--primary);
   transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
 }
-
-.semana-dia-cell.domingo,
-.semana-dia-card.domingo {
+.semana-dia-cell.domingo {
   opacity: 0.7;
+  cursor: default;
 }
-
 .semana-dia-num {
   font-weight: 600;
   font-size: 16px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+/* ── Tarjetas de la semana — solo 7, mucho más detalle ────────
+   El motor del sistema: desde aquí se elige la fecha de trabajo,
+   por eso llevan tipografía grande, barra de ocupación y animación
+   de entrada — nada que ver con el tamaño diminuto de las celdas
+   del mes, que antes compartían la misma regla. ── */
+.semana-dia-card {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 20px 12px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(.22,.68,0,1.1), box-shadow 0.22s ease, border-color 0.22s ease;
+  animation: qm-kpi-in .4s cubic-bezier(.22,.68,0,1.1) backwards;
+}
+.semana-grid-dias .semana-dia-card:nth-child(1) { animation-delay: .02s; }
+.semana-grid-dias .semana-dia-card:nth-child(2) { animation-delay: .05s; }
+.semana-grid-dias .semana-dia-card:nth-child(3) { animation-delay: .08s; }
+.semana-grid-dias .semana-dia-card:nth-child(4) { animation-delay: .11s; }
+.semana-grid-dias .semana-dia-card:nth-child(5) { animation-delay: .14s; }
+.semana-grid-dias .semana-dia-card:nth-child(6) { animation-delay: .17s; }
+.semana-grid-dias .semana-dia-card:nth-child(7) { animation-delay: .20s; }
+
+.semana-dia-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 12px 26px rgba(0,0,0,.14);
+}
+.semana-dia-card:active { transform: translateY(-2px) scale(1.005); }
+
+.semana-dia-card.domingo {
+  opacity: 0.85;
+  cursor: default;
+  background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.035) 0 8px, transparent 8px 16px);
+}
+
+.semana-dia-card-nombre {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  opacity: .8;
+}
+.semana-dia-card-num {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+.semana-dia-card-info {
+  font-size: 12.5px;
+  font-weight: 500;
+  opacity: .9;
+  text-align: center;
+}
+
+/* Barra de ocupación — usa los mismos colores que ya calcula colorOcupacion() */
+.semana-ocupacion-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0,0,0,.1);
+  overflow: hidden;
+  margin-top: 2px;
+}
+.semana-ocupacion-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .6s ease;
+}
+
+/* Badge de viaje — legible en ambas vistas (antes 8px en el mes) */
+.semana-viaje-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.semana-dia-card .semana-viaje-badge {
+  font-size: 13px;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.55);
+  margin-top: 2px;
 }
 
 .semana-volver-mes {
@@ -1624,22 +2169,40 @@ body {
     margin-bottom: 8px;
   }
 
+  .semana-legend {
+    gap: 10px;
+    font-size: 10.5px;
+  }
+
   .semana-grid-dias-header,
-  .semana-mes-grid,
-  .semana-grid-dias {
+  .semana-mes-grid {
     gap: 6px;
   }
 
-  .semana-dia-cell,
-  .semana-dia-card {
+  .semana-dia-cell {
     min-height: 50px;
     padding: 6px;
     font-size: 12px;
   }
+  .semana-dia-num { font-size: 14px; }
 
-  .semana-dia-num {
-    font-size: 14px;
+  /* La grilla de la semana deja de forzar 7 columnas angostas — cada
+     tarjeta reserva un ancho mínimo y se ajusta al espacio disponible,
+     así se mantienen proporcionadas (cuadradas) en vez de estirarse
+     como listones verticales. */
+  .semana-grid-dias {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
   }
+  .semana-dia-card {
+    aspect-ratio: 1;
+    min-height: 112px;
+    padding: 14px 8px 12px;
+    gap: 5px;
+  }
+  .semana-dia-card-num { font-size: 25px; }
+  .semana-dia-card-nombre { font-size: 11px; }
+  .semana-dia-card-info { font-size: 11px; }
 }
 
 @media (max-width: 480px) {
@@ -1648,14 +2211,23 @@ body {
     min-height: 250px;
   }
 
-  .semana-dia-cell,
-  .semana-dia-card {
+  .semana-dia-cell {
     min-height: 40px;
     padding: 4px;
     font-size: 11px;
   }
+  .semana-dia-num { font-size: 12px; }
 
-  .semana-dia-num {
-    font-size: 12px;
+  .semana-grid-dias {
+    grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+    gap: 6px;
   }
+  .semana-dia-card {
+    aspect-ratio: 1;
+    min-height: 96px;
+    padding: 10px 6px 10px;
+    gap: 4px;
+  }
+  .semana-dia-card-num { font-size: 21px; }
+  .semana-dia-card-info { font-size: 10.5px; }
 }

@@ -718,6 +718,26 @@
   transform: scale(0.96);
 }
 
+/* Bug visual: el FAB de IA (definido en dashboard.css con right:28px;
+   bottom:28px) caía casi en el mismo punto que .btn-floating-search
+   (right:30px; bottom:30px), superponiéndose. Esta hoja se carga después
+   de dashboard.css SOLO en el dashboard de Call Center, así que el ajuste
+   queda aislado a esta página — Admin/Secretaria no la incluyen y no se
+   ven afectados. Se sube el FAB de IA por encima de la pila existente
+   (botón de teléfono + botón de resumen para informe). */
+.ia-fab {
+  bottom: 152px; /* 94 (botón resumen) + 48 (su alto) + 10 de separación */
+}
+
+@media (max-width: 768px) {
+  .ia-fab {
+    right: 16px;
+    bottom: 186px; /* 134 (botón resumen en móvil) + 44 (su alto) + 8 */
+    width: 50px;
+    height: 50px;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    SECCIÓN DE CITAS DE HOY EN DASHBOARD
 ══════════════════════════════════════════════════════════ */

@@ -1,9 +1,57 @@
 // ══════════════════════════════════════════════════════════
 // src/shared/helpers.js — Utilidades globales del dashboard
 // ══════════════════════════════════════════════════════════
+import { toast } from './interactions.js';
+
+const _ENTIDADES_HTML = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+/**
+ * Escapa caracteres HTML especiales para insertar datos de forma segura
+ * dentro de un template literal destinado a innerHTML. Usar SIEMPRE con
+ * cualquier campo que venga de Firestore o de un usuario (nombre, notas,
+ * ciudad, tipo de sesión, etc.) antes de interpolarlo — sin esto, un
+ * paciente registrado con un nombre como "<img src=x onerror=...>" queda
+ * guardado tal cual y ejecuta al mostrarse en cualquier pantalla de staff.
+ * @param {*} valor
+ * @returns {string}
+ */
+export function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return '';
+  return String(valor).replace(/[&<>"']/g, (c) => _ENTIDADES_HTML[c]);
+}
+
+/**
+ * Copia un número de teléfono al portapapeles y confirma con un toast.
+ * Usa navigator.clipboard en contextos seguros (HTTPS); en contextos
+ * inseguros o navegadores viejos cae a un textarea + execCommand.
+ * @param {string} numero
+ */
+export async function copiarTelefono(numero) {
+  if (!numero) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(numero);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = numero;
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    toast('Número copiado', 'success');
+  } catch (_) {
+    toast('No se pudo copiar el número', 'error');
+  }
+}
 
 /**
  * Muestra una alerta temporal en un elemento del DOM.
+ * La entrada/salida se anima vía CSS (.alert-error hace shake, el resto
+ * aparece con un pop suave — ver main.css); esta función solo programa
+ * el desvanecimiento antes de limpiar el contenido.
  * @param {string} elId  - ID del elemento contenedor
  * @param {string} msg   - Mensaje a mostrar
  * @param {'success'|'error'} tipo
@@ -11,9 +59,29 @@
 export function mostrarAlerta(elId, msg, tipo) {
   const el = document.getElementById(elId);
   if (!el) return;
+  clearTimeout(el._alertTimer);
   el.textContent = msg;
   el.className   = tipo === 'success' ? 'alert alert-success' : 'alert alert-error';
-  setTimeout(() => { el.textContent = ''; el.className = ''; }, 4000);
+  desvanecerAlerta(el);
+}
+
+/**
+ * Programa el desvanecimiento animado de un elemento .alert ya visible
+ * (usado también por los banners de "próximo horario disponible", que
+ * arman su propio HTML en vez de pasar por mostrarAlerta).
+ * @param {HTMLElement} el
+ * @param {number} [delay=4000]
+ */
+export function desvanecerAlerta(el, delay = 4000) {
+  if (!el) return;
+  clearTimeout(el._alertTimer);
+  el._alertTimer = setTimeout(() => {
+    el.classList.add('alert-saliendo');
+    el.addEventListener('animationend', () => {
+      el.innerHTML  = '';
+      el.className  = '';
+    }, { once: true });
+  }, delay);
 }
 
 /**

@@ -307,7 +307,7 @@ tbody tr:hover td { background-color: var(--th-row-hover); }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.55);
-  z-index: 500;
+  z-index: 1500; /* por encima de la barra de navegación inferior fija (z-index 999 en móvil) */
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.2s ease;
@@ -364,6 +364,29 @@ tbody tr:hover td { background-color: var(--th-row-hover); }
 .form-label span   { color: var(--danger); margin-left: 2px; }
 .form-row-2col     { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
+/* ── Método de pago (efectivo / nequi / daviplata) ──────── */
+.metodo-pago-grupo { display: flex; gap: 8px; }
+.metodo-pago-btn {
+  flex: 1;
+  padding: 9px 10px;
+  border: 1px solid var(--th-card-border);
+  border-radius: 8px;
+  background: var(--th-card);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all .15s ease;
+  text-align: center;
+}
+.metodo-pago-btn:hover { border-color: var(--primary); color: var(--primary); }
+.metodo-pago-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 /* ── Alert / mensajes ───────────────────────────────────── */
 .alert {
   padding: 10px 14px;
@@ -375,10 +398,37 @@ tbody tr:hover td { background-color: var(--th-row-hover); }
 .alert-error   { background: var(--danger-soft);  color: var(--danger);  border-left-color: var(--danger);  }
 .alert-success { background: var(--success-soft); color: var(--success); border-left-color: var(--success); }
 .alert-info    { background: var(--primary-soft); color: var(--primary-text); border-left-color: var(--primary); }
+.alert-warning { background: var(--warning-soft); color: var(--warning); border-left-color: var(--warning); }
 .alert-hidden  { display: none; }
 
 [data-theme="dark"] .alert-error   { color: #f87171; }
 [data-theme="dark"] .alert-success { color: #4ade80; }
+[data-theme="dark"] .alert-warning { color: #fbbf24; }
+
+/* Entrada: shake para error (llama la atención sobre el problema),
+   pop suave para el resto. Salida: fundido antes de vaciar el contenido
+   (ver mostrarAlerta/desvanecerAlerta en shared/helpers.js). */
+.alert-error   { animation: alertShakeIn .5s cubic-bezier(.36,.07,.19,.97); }
+.alert-success,
+.alert-warning,
+.alert-info    { animation: alertPopIn .3s cubic-bezier(.22,.68,0,1.2); }
+.alert-saliendo { animation: alertFadeOut .22s ease forwards; }
+
+@keyframes alertPopIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes alertShakeIn {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  50%  { opacity: 1; transform: translateX(-4px) translateY(0); }
+  65%  { transform: translateX(3px); }
+  80%  { transform: translateX(-2px); }
+  92%  { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+@keyframes alertFadeOut {
+  to { opacity: 0; transform: translateY(-6px) scale(.97); }
+}
 
 /* ── Barra de filtros ───────────────────────────────────── */
 .filter-bar {

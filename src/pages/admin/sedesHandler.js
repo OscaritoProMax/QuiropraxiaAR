@@ -5,6 +5,7 @@ import { inicializarSelectsUbicacion, restaurarUbicacion } from '../../modules/p
 import { crearViaje, obtenerViajes, eliminarViaje, actualizarViaje } from '../../modules/viajes/viajesService.js';
 import { obtenerCitasPorRangoFecha, ESTADOS } from '../../modules/citas/citasService.js';
 import { mostrarAlerta, abrirModal, cerrarModal, HOY } from '../../shared/helpers.js';
+import { confirmar, toast } from '../../shared/interactions.js';
 import { hora12Display } from '../../shared/timePicker.js';
 
 let usuarioActual = null;
@@ -65,8 +66,8 @@ async function guardarViaje() {
     horaFin:     getVal('v-hora-fin'),
   };
 
-  if (!ciudad)                              { mostrarAlerta('alert-global', 'Selecciona el departamento y la ciudad destino.', 'error'); return; }
-  if (!datos.fechaInicio || !datos.fechaFin) { mostrarAlerta('alert-global', 'Selecciona las fechas del viaje.', 'error'); return; }
+  if (!ciudad)                              { toast('Selecciona el departamento y la ciudad destino.', 'error'); return; }
+  if (!datos.fechaInicio || !datos.fechaFin) { toast('Selecciona las fechas del viaje.', 'error'); return; }
 
   btn.disabled = true; btn.textContent = 'Guardando...';
   const res = await crearViaje(datos, usuarioActual?.uid, usuarioActual?.nombre);
@@ -75,12 +76,12 @@ async function guardarViaje() {
   if (res.ok) {
     let msg = `Viaje a ${res.ciudadFull} programado.`;
     if (res.citasAfectadas > 0) msg += ` ${res.citasAfectadas} cita(s) quedaron pendientes por reprogramar.`;
-    mostrarAlerta('alert-global', msg, 'success');
+    toast(msg, 'success');
     document.getElementById('v-fecha-inicio').value = '';
     document.getElementById('v-fecha-fin').value    = '';
     await recargar();
   } else {
-    mostrarAlerta('alert-global', res.error, 'error');
+    toast(res.error, 'error');
   }
 }
 
@@ -249,7 +250,7 @@ async function actualizarViajeHandler() {
 
   if (res.ok) {
     cerrarModal('modal-editar-viaje');
-    mostrarAlerta('alert-global', `Viaje actualizado a ${res.ciudadFull}.`, 'success');
+    toast(`Viaje actualizado a ${res.ciudadFull}.`, 'success');
     await recargar();
   } else {
     mostrarAlerta('alert-editar-viaje', res.error, 'error');
@@ -258,15 +259,21 @@ async function actualizarViajeHandler() {
 
 // ── Eliminar viaje ─────────────────────────────────────────
 async function eliminarViajeHandler(id) {
-  if (!confirm('¿Eliminar este viaje? Las citas que quedaron pendientes se reactivarán si su cupo sigue libre.')) return;
+  const ok = await confirmar({
+    titulo: 'Eliminar viaje',
+    mensaje: 'Las citas que quedaron pendientes se reactivarán si su cupo sigue libre.',
+    tipo: 'danger',
+    textoConfirmar: 'Eliminar',
+  });
+  if (!ok) return;
   const res = await eliminarViaje(id, usuarioActual?.uid, usuarioActual?.nombre);
   if (res.ok) {
     let msg = 'Viaje eliminado.';
     if (res.reactivadas > 0) msg += ` ${res.reactivadas} cita(s) reactivada(s).`;
-    mostrarAlerta('alert-global', msg, 'success');
+    toast(msg, 'success');
     await recargar();
   } else {
-    mostrarAlerta('alert-global', res.error, 'error');
+    toast(res.error, 'error');
   }
 }
 

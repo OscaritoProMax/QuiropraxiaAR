@@ -8,7 +8,15 @@ node_modules/
  
 # Build
 dist/
- 
+android/
+*.apk
+*.aab
+
+# Firmas — NUNCA subir
+*.jks
+*.keystore
+keystore.properties
+
 # Sistema operativo
 .DS_Store
 Thumbs.db

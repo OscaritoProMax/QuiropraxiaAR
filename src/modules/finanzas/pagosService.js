@@ -58,7 +58,10 @@ export async function registrarPago(datos) {
       fecha, hora, tipoSesion,
       tarifaBase = TARIFA_BASE,
       medicamentos = [],   // [{ nombre, precio }]
-      usuarioId
+      usuarioId,
+      metodoPago = 'efectivo',      // 'efectivo' | 'nequi' | 'daviplata'
+      modificadoPorAdmin = false,   // true si el admin ajustó el valor antes de aprobarlo
+      totalOriginal = null,         // total enviado originalmente, cuando hubo edición
     } = datos;
 
     const totalMedicamentos = medicamentos.reduce((sum, m) => sum + (Number(m.precio) || 0), 0);
@@ -74,6 +77,9 @@ export async function registrarPago(datos) {
       totalMedicamentos,
       totalCobrado,
       usuarioId,
+      metodoPago,
+      modificadoPorAdmin,
+      ...(totalOriginal != null ? { totalOriginal } : {}),
       timestamp: serverTimestamp()
     });
 
@@ -128,6 +134,18 @@ export function calcularTotalesDia(pagos) {
 // ── Totales del mes ───────────────────────────────────────
 export function calcularTotalesMes(pagos) {
   return calcularTotalesDia(pagos); // misma estructura
+}
+
+// ── Totales por método de pago (efectivo / nequi / daviplata) ─────
+// Los pagos registrados antes de este campo no tienen metodoPago
+// guardado — se asumen "efectivo" para no perder esos montos del total.
+export function calcularTotalesPorMetodo(pagos) {
+  const totales = { efectivo: 0, nequi: 0, daviplata: 0 };
+  pagos.forEach(p => {
+    const m = totales[p.metodoPago] !== undefined ? p.metodoPago : 'efectivo';
+    totales[m] += (p.totalCobrado || 0);
+  });
+  return totales;
 }
 
 // ── Formatear como pesos colombianos ─────────────────────

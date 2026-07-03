@@ -244,8 +244,8 @@
   <div class="main-area">
     <div class="topbar">
       <div class="topbar-left">
-        <h1 id="topbar-title">Dashboard</h1>
-        <p  id="topbar-sub">Módulo Call-center</p>
+        <h1 id="topbar-title">Quiromasajes</h1>
+        <p  id="topbar-sub">Resumen del día</p>
       </div>
       <div class="topbar-right" id="topbar-actions"></div>
     </div>
@@ -316,24 +316,81 @@
 
         <!-- Citas que un viaje del quiropráctico dejó pendientes por reprogramar -->
         <div id="dash-reprogramar-wrap"></div>
+
+        <!-- ══ Asistente IA flotante ══ -->
+        <button class="ia-fab" id="ia-fab" title="Asistente IA" aria-label="Abrir asistente IA">
+          <svg class="ia-fab-icon-chat" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <svg class="ia-fab-icon-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+
+        <div class="ia-chat-panel" id="ia-chat-panel">
+          <div class="ia-chat-header">
+            <div class="ia-chat-header-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8"  y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+            <div class="ia-chat-header-text">
+              <div class="ia-chat-header-title">Asistente IA</div>
+              <div class="ia-chat-header-sub">Agenda, cancela o reprograma citas por voz</div>
+            </div>
+            <button class="ia-chat-close" id="ia-chat-close" aria-label="Cerrar">×</button>
+          </div>
+
+          <div class="ia-chat-messages" id="ia-chat-messages"></div>
+
+          <div class="ia-chat-inputbar">
+            <button class="ia-mic-btn ia-mic-btn-sm" id="ia-chat-mic-btn" type="button" title="Hablar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              </svg>
+            </button>
+            <input class="ia-chat-input" id="ia-chat-input" type="text" placeholder="Pregúntame algo o dicta una cita..." autocomplete="off"/>
+            <button class="ia-chat-send" id="ia-chat-send" type="button" title="Enviar" aria-label="Enviar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- CITAS — vista de slots ─────────────────────────── -->
       <section id="view-citas" class="view-section">
-        <div class="search-items" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <label class="form-label" style="margin:0">Fecha:</label>
-            <input class="input-text" type="date" id="filter-fecha" style="width:160px"/>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-gray btn-sm" id="btn-hoy">Hoy</button>
-            <button class="btn btn-gray btn-sm" id="btn-manana">Mañana</button>
-          </div>
+        <div class="citas-tabs">
+          <button class="btn btn-gray btn-sm citas-tab active" id="tab-citas-fecha" data-modo="fecha">Por fecha</button>
+          <button class="btn btn-gray btn-sm citas-tab" id="tab-citas-buscar" data-modo="buscar">Buscar paciente</button>
         </div>
+
         <div id="alert-cita"></div>
 
-        <div id="slots-container" class="slots-wrap">
-          <div class="empty-state">Selecciona una fecha para ver la agenda</div>
+        <div id="citas-modo-fecha">
+          <div class="search-items" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label class="form-label" style="margin:0">Fecha:</label>
+              <input class="input-text" type="date" id="filter-fecha" style="width:160px"/>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-gray btn-sm" id="btn-hoy">Hoy</button>
+              <button class="btn btn-gray btn-sm" id="btn-manana">Mañana</button>
+            </div>
+          </div>
+
+          <div id="slots-container" class="slots-wrap">
+            <div class="empty-state">Selecciona una fecha para ver la agenda</div>
+          </div>
+        </div>
+
+        <div id="citas-modo-buscar" style="display:none">
+          <div id="buscador-citas-container"></div>
         </div>
       </section>
 
@@ -632,7 +689,9 @@
 
 <script type="module">
  import { initCallcenter } from './handlers.js';
+ import { initMicroInteracciones } from '../../shared/interactions.js';
   initCallcenter();
+  initMicroInteracciones();
 </script>
 
 </body>

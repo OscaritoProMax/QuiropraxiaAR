@@ -47,6 +47,21 @@ function calcularOcupacion(citasDelDia) {
   return { ocupadas, libres, total, pct };
 }
 
+// Badge de viaje — mismo ícono/color en la celda del mes (chico) y en la
+// tarjeta de la semana (grande, legible).
+function _viajeBadgeHtml(viaje, tamanoIcono = 12) {
+  return `<span class="semana-viaje-badge">
+    <svg width="${tamanoIcono}" height="${tamanoIcono}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </svg>${viaje.ciudad}</span>`;
+}
+
+// Barra de ocupación de la tarjeta semanal — reusa el color ya calculado
+// por colorOcupacion() para el día, sin inventar una paleta nueva.
+function _ocupacionBarHtml(pct, color) {
+  return `<div class="semana-ocupacion-bar"><div class="semana-ocupacion-fill" style="width:${pct}%;background:${color.fg}"></div></div>`;
+}
+
 function obtenerDiasDeLaSemana(fechaStr) {
   const d   = new Date(fechaStr + 'T12:00:00');
   const dow = d.getDay(); // 0=domingo..6=sábado
@@ -102,7 +117,7 @@ async function renderMes(fechaRef) {
       <div class="semana-dia-cell ${esDomingo && !viaje ? 'domingo' : ''}" data-fecha="${fechaStr}"
            style="background:${color.bg};color:${color.fg}" title="${titulo}">
         <span class="semana-dia-num">${dia}</span>
-        ${viaje ? `<span style="display:block;font-size:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">📍${viaje.ciudad}</span>` : ''}
+        ${viaje ? _viajeBadgeHtml(viaje, 9) : ''}
       </div>`;
   }
 
@@ -111,6 +126,13 @@ async function renderMes(fechaRef) {
       <button class="btn btn-gray btn-sm" id="semana-mes-prev">←</button>
       <div class="semana-mes-titulo">${MESES[mes]} ${anio}</div>
       <button class="btn btn-gray btn-sm" id="semana-mes-next">→</button>
+    </div>
+    <div class="semana-legend">
+      <span class="semana-legend-item"><span class="semana-legend-dot" style="background:#f1f3f5;border:1px solid #ced4da"></span>Libre</span>
+      <span class="semana-legend-item"><span class="semana-legend-dot" style="background:#57bd79"></span>Ocupado</span>
+      <span class="semana-legend-item"><span class="semana-legend-dot" style="background:#2e9e54"></span>Lleno</span>
+      <span class="semana-legend-item"><span class="semana-legend-dot" style="background:#adb5bd"></span>Domingo (cerrado)</span>
+      <span class="semana-legend-item"><span class="semana-legend-dot" style="background:#6d28d9"></span>Viaje</span>
     </div>
     <div class="semana-grid-dias-header">
       ${DIAS_SEMANA.map(d => `<div>${d}</div>`).join('')}
@@ -160,16 +182,19 @@ async function renderSemanaDeDias(fechaStr) {
     const viaje        = viajeDeFecha(viajes, fechaStrDia);
     const { libres, total, pct } = calcularOcupacion(porFecha[fechaStrDia] || []);
     const color = viaje ? COLOR_VIAJE : (esDomingo ? COLOR_DOMINGO : colorOcupacion(pct));
-    const info  = viaje
-      ? `📍 ${viaje.ciudad}`
-      : (esDomingo ? 'Cerrado' : `${libres}/${total} citas disponibles`);
+    const titulo = viaje ? `Quiropráctico en ${viaje.ciudadFull}` : (esDomingo ? 'Cerrado' : pct + '% ocupado');
 
     return `
       <div class="semana-dia-card ${esDomingo && !viaje ? 'domingo' : ''}" data-fecha="${fechaStrDia}"
-           style="background:${color.bg};color:${color.fg}">
+           style="background:${color.bg};color:${color.fg}" title="${titulo}">
         <div class="semana-dia-card-nombre">${DIAS_SEMANA[(d.getDay() + 6) % 7]}</div>
         <div class="semana-dia-card-num">${d.getDate()}</div>
-        <div class="semana-dia-card-info">${info}</div>
+        ${viaje
+          ? _viajeBadgeHtml(viaje, 14)
+          : `
+            <div class="semana-dia-card-info">${esDomingo ? 'Cerrado' : `${libres}/${total} citas disponibles`}</div>
+            ${!esDomingo ? _ocupacionBarHtml(pct, color) : ''}
+          `}
       </div>`;
   }).join('');
 

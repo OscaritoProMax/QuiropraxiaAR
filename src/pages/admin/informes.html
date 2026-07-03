@@ -29,6 +29,8 @@
       --amber-bg:#fffbeb;
       --purple:  #6d28d9;
       --purple-bg:#f5f3ff;
+      --teal:    #0d9488;
+      --teal-bg: #f0fdfa;
       --r:       8px;
       --r2:      12px;
     }
@@ -138,11 +140,28 @@
     .badge-amber  { background: var(--amber-bg); color: var(--amber); }
     .badge-red    { background: var(--red-bg); color: var(--red); }
     .badge-blue   { background: var(--blue-bg); color: var(--blue); }
+    .badge-purple { background: var(--purple-bg); color: var(--purple); }
+    .badge-teal   { background: var(--teal-bg); color: var(--teal); }
     .badge-gray   { background: var(--line2); color: var(--ink2); }
 
     /* ── Secciones ── */
     .seccion    { display: none; }
+    .seccion.activa { animation: qm-inf-fade .35s ease; }
+    @keyframes qm-inf-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .inf-titulo { font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+
+    /* ── Feedback táctil en botones y navegación ── */
+    .s-btn, .s-foot-btn, .mob-btn, .btn-gen, .btn-print, .btn-back-mobile {
+      transition: background .12s, color .12s, transform .12s, opacity .12s, border-color .15s;
+    }
+    .s-btn:active, .btn-gen:active, .btn-print:active, .btn-back-mobile:active { transform: scale(.94); }
+    .mob-btn:active svg { transform: scale(.88); }
+    .mob-btn svg { transition: transform .12s; }
+    .mob-btn.active { animation: qm-tab-pop .25s cubic-bezier(.22,.68,0,1.4); }
+    @keyframes qm-tab-pop { from { transform: scale(.85); } to { transform: scale(1); } }
+    .kpi { transition: transform .15s, box-shadow .15s; }
+    .kpi:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+    .card { animation: qm-inf-fade .3s ease backwards; }
 
     /* ── Print footer row ── */
     .print-row  { display: flex; justify-content: flex-end; padding-top: 4px; }
@@ -352,7 +371,7 @@
 <script type="module">
 import { protegerPagina } from '../../core/router.js';
 import { logout }         from '../../core/authService.js';
-import { HOY }            from '../../shared/helpers.js';
+import { HOY, escapeHtml } from '../../shared/helpers.js';
 import {
   obtenerCitasPorRango, obtenerPagosPorRango,
   obtenerPacientesNuevosEnRango, obtenerTodosPacientes,
@@ -437,9 +456,9 @@ function bindNav() {
 }
 
 function activar(id) {
-  document.querySelectorAll('.seccion').forEach(s=> s.style.display='none');
+  document.querySelectorAll('.seccion').forEach(s=> { s.style.display='none'; s.classList.remove('activa'); });
   const el = document.getElementById(id);
-  if(el) el.style.display='block';
+  if(el) { el.style.display='block'; el.classList.add('activa'); }
   document.querySelectorAll('[data-sec]').forEach(b=> b.classList.toggle('active', b.dataset.sec===id));
   const [t,s] = TITULOS[id]||['',''];
   document.getElementById('t-title').textContent = t;
@@ -472,6 +491,17 @@ function badge(estado) {
   return `<span class="badge badge-${m[estado]||'gray'}">${l[estado]||estado}</span>`;
 }
 
+function metodoBadge(metodo) {
+  const m={efectivo:'green',nequi:'purple',daviplata:'red'};
+  const l={efectivo:'Efectivo',nequi:'Nequi',daviplata:'Daviplata'};
+  const key = m[metodo] ? metodo : 'efectivo';
+  return `<span class="badge badge-${m[key]}">${l[key]}</span>`;
+}
+
+function mostradorBadge(esMostrador) {
+  return esMostrador ? `<span class="badge badge-teal">Mostrador</span>` : '';
+}
+
 function card(title, body, extra='') {
   return `<div class="card">
     <div class="card-head"><span class="card-title">${title}</span>${extra}</div>
@@ -484,7 +514,7 @@ function barras(items, color='blue') {
   const max = items[0][1];
   return items.map(([lbl,val,fmt])=>`
     <div class="bar-row">
-      <span class="bar-lbl">${lbl}</span>
+      <span class="bar-lbl">${escapeHtml(lbl)}</span>
       <div class="bar-track"><div class="bar-fill ${color}" style="width:${max>0?Math.round((val/max)*100):0}%"></div></div>
       <span class="bar-val">${fmt||val}</span>
     </div>`).join('');
@@ -529,21 +559,22 @@ async function genDiario(fecha) {
     kpi('Tasa atención',r.tasaAtencion+'%',       r.tasaAtencion>=70?'green':'amber'),
   ]);
   html += card('Citas del día', tabla(
-    ['Hora','Paciente','Tipo','Estado'],
+    ['Hora','Paciente','Tipo','Estado',''],
     citas.map(c=>[
-      `<span class="td-mono">${c.hora}</span>`,
-      `<span class="td-bold">${c.clienteNombre}</span>`,
-      c.tipo, badge(c.estado)
+      `<span class="td-mono">${escapeHtml(c.hora)}</span>`,
+      `<span class="td-bold">${escapeHtml(c.clienteNombre)}</span>`,
+      escapeHtml(c.tipo), badge(c.estado), mostradorBadge(c.mostrador)
     ])
   ));
   if(pagos.length) html += card('Cobros del día', tabla(
-    ['Hora','Paciente','Tarifa','Adicional','Total'],
+    ['Hora','Paciente','Tarifa','Adicional','Total','Método'],
     pagos.map(p=>[
-      `<span class="td-mono">${p.hora}</span>`,
-      p.clienteNombre,
+      `<span class="td-mono">${escapeHtml(p.hora)}</span>`,
+      escapeHtml(p.clienteNombre),
       `<span class="td-mono">${formatCOP(p.tarifaBase)}</span>`,
       `<span class="td-mono">${p.totalMedicamentos>0?formatCOP(p.totalMedicamentos):'—'}</span>`,
       `<span class="td-mono td-bold">${formatCOP(p.totalCobrado)}</span>`,
+      metodoBadge(p.metodoPago),
     ]),
     `Total · ${f.cantidad} sesiones · ${formatCOP(f.total)}`
   ));
@@ -588,8 +619,8 @@ async function genFinanzas(desde,hasta) {
     ['Fecha','Hora','Paciente','Tipo','Tarifa','Adicional','Total'],
     pagos.map(p=>[
       fechaLegible(p.fecha,{day:'numeric',month:'short'}),
-      `<span class="td-mono">${p.hora}</span>`,
-      p.clienteNombre, p.tipoSesion,
+      `<span class="td-mono">${escapeHtml(p.hora)}</span>`,
+      escapeHtml(p.clienteNombre), escapeHtml(p.tipoSesion),
       `<span class="td-mono">${formatCOP(p.tarifaBase)}</span>`,
       `<span class="td-mono">${p.totalMedicamentos>0?formatCOP(p.totalMedicamentos):'—'}</span>`,
       `<span class="td-mono td-bold">${formatCOP(p.totalCobrado)}</span>`,
@@ -635,8 +666,8 @@ async function genCitas(desde,hasta) {
     tabla(['Fecha','Hora','Paciente','Ciudad','Tipo'],
       canceladas.map(c=>[
         fechaLegible(c.fecha,{day:'numeric',month:'short'}),
-        `<span class="td-mono">${c.hora}</span>`,
-        c.clienteNombre, c.clienteCiudad||'—', c.tipo
+        `<span class="td-mono">${escapeHtml(c.hora)}</span>`,
+        escapeHtml(c.clienteNombre), escapeHtml(c.clienteCiudad||'—'), escapeHtml(c.tipo)
       ])
     )
   );
@@ -683,7 +714,7 @@ async function genPacientes(desde,hasta) {
   </div>`;
   if(nuevos.length) html += card(`Nuevos pacientes (${nuevos.length})`, tabla(
     ['Nombre','Teléfono','Ciudad'],
-    nuevos.map(p=>[`<span class="td-bold">${p.nombre}</span>`, p.telefono||'—', p.ciudad||'—'])
+    nuevos.map(p=>[`<span class="td-bold">${escapeHtml(p.nombre)}</span>`, escapeHtml(p.telefono||'—'), escapeHtml(p.ciudad||'—')])
   ));
   html += printBtn('pacientes');
   set('p-res', html);
@@ -710,12 +741,12 @@ async function genCrono(fecha) {
     kpi('Canceladas',  citas.filter(c=>c.estado===ESTADOS.CANCELADA).length,'red'),
   ]);
   html += card('Agenda del día', tabla(
-    ['Hora','Paciente','Ciudad','Tipo','Estado','Notas'],
+    ['Hora','Paciente','Ciudad','Tipo','Estado','','Notas'],
     citas.map(c=>[
-      `<span class="td-mono">${c.hora}</span>`,
-      `<span class="td-bold">${c.clienteNombre}</span>`,
-      c.clienteCiudad||'—', c.tipo, badge(c.estado),
-      `<span style="font-size:11px;color:var(--ink3)">${c.notas||'—'}</span>`
+      `<span class="td-mono">${escapeHtml(c.hora)}</span>`,
+      `<span class="td-bold">${escapeHtml(c.clienteNombre)}</span>`,
+      escapeHtml(c.clienteCiudad||'—'), escapeHtml(c.tipo), badge(c.estado), mostradorBadge(c.mostrador),
+      `<span style="font-size:11px;color:var(--ink3)">${escapeHtml(c.notas||'—')}</span>`
     ])
   ));
   html += printBtn('crono');
@@ -768,7 +799,7 @@ async function genMensual(mes) {
     ['Fecha','Paciente','Tipo','Total'],
     pagos.map(p=>[
       fechaLegible(p.fecha,{day:'numeric',month:'short'}),
-      p.clienteNombre, p.tipoSesion,
+      escapeHtml(p.clienteNombre), escapeHtml(p.tipoSesion),
       `<span class="td-mono td-bold">${formatCOP(p.totalCobrado)}</span>`
     ]),
     `Total ${formatCOP(f.total)}`
@@ -793,7 +824,7 @@ function imprimir(tipo, periodo, contenidoHTML) {
         <div style="text-align:right">
           <div style="font-size:13px;font-weight:500">${tipo}</div>
           <div style="font-size:11px;color:#6b6b6b;margin-top:2px">${periodo}</div>
-          <div style="font-size:10px;color:#a8a8a8;margin-top:2px">Generado ${ahora} por ${usr?.nombre||'Administrador'}</div>
+          <div style="font-size:10px;color:#a8a8a8;margin-top:2px">Generado ${ahora} por ${escapeHtml(usr?.nombre||'Administrador')}</div>
         </div>
       </div>
       <div id="print-body"></div>
